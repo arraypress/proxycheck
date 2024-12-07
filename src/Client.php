@@ -247,9 +247,24 @@ class Client {
 				return $response;
 			}
 
-			foreach ( $response as $ip => $data ) {
-				if ( $ip !== 'status' ) { // Skip the status field
-					$results[ $ip ] = new Response( [ $ip => $data ] );
+			// Create individual Response objects for each IP
+			foreach ( $batch as $ip ) {
+				if ( isset( $response[ $ip ] ) ) {
+					try {
+						// Create a properly structured single-IP response
+						$single_response = [
+							'status'     => $response['status'] ?? 'ok',
+							'node'       => $response['node'] ?? null,
+							'query time' => $response['query time'] ?? null,
+							$ip          => $response[ $ip ]
+						];
+						$results[ $ip ]  = new Response( $single_response );
+					} catch ( \Exception $e ) {
+						return new WP_Error(
+							'response_error',
+							sprintf( __( 'Error processing response for IP %s: %s', 'arraypress' ), $ip, $e->getMessage() )
+						);
+					}
 				}
 			}
 		}
