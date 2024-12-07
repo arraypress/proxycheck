@@ -14,6 +14,7 @@ declare( strict_types=1 );
 
 namespace ArrayPress\ProxyCheck;
 
+use Exception;
 use WP_Error;
 
 class Client {
@@ -155,8 +156,20 @@ class Client {
 		}
 
 		$status_code = wp_remote_retrieve_response_code( $response );
-		$body        = wp_remote_retrieve_body( $response );
-		$data        = json_decode( $body, true );
+
+		// Check for HTTP error status codes
+		if ( $status_code < 200 || $status_code >= 300 ) {
+			return new WP_Error(
+				'http_error',
+				sprintf(
+					__( 'HTTP request failed with status code: %d', 'arraypress' ),
+					$status_code
+				)
+			);
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
 
 		if ( json_last_error() !== JSON_ERROR_NONE ) {
 			return new WP_Error(
@@ -259,7 +272,7 @@ class Client {
 							$ip          => $response[ $ip ]
 						];
 						$results[ $ip ]  = new Response( $single_response );
-					} catch ( \Exception $e ) {
+					} catch ( Exception $e ) {
 						return new WP_Error(
 							'response_error',
 							sprintf( __( 'Error processing response for IP %s: %s', 'arraypress' ), $ip, $e->getMessage() )
