@@ -1,0 +1,47 @@
+{
+  "name": "arraypress/proxycheck",
+  "description": "A PHP library for integrating with the ProxyCheck.io API in WordPress, providing proxy & VPN detection, disposable email verification, geolocation, and risk assessment. Features comprehensive response handling and WordPress transient caching.",
+  "type": "library",
+  "license": "GPL-2.0-or-later",
+  "homepage": "https://github.com/arraypress/proxycheck/",
+  "authors": [
+    {
+      "name": "David Sherlock",
+      "homepage": "https://arraypress.com/"
+    }
+  ],
+  "require": {
+    "php": "^7.4 || ^8.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "ArrayPress\\ProxyCheck\\": "src/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "support": {
+    "issues": "https://github.com/arraypress/proxycheck/issues",
+    "source": "https://github.com/arraypress/proxycheck"
+  },
+  "keywords": [
+    "proxycheck",
+    "proxy-detection",
+    "vpn-detection",
+    "disposable-email",
+    "email-verification",
+    "geolocation",
+    "risk-assessment",
+    "wordpress",
+    "ip-lookup",
+    "asn",
+    "security",
+    "anti-fraud",
+    "ip-intelligence",
+    "threat-detection"
+  ]
+}
