@@ -41,7 +41,11 @@ class Response {
 	public function __construct( array $data ) {
 		$this->data = $data;
 		// Extract the IP from the response data
-		$this->ip = array_key_first( array_diff_key( $data, [ 'status' => 1, 'message' => 1 ] ) );
+		$this->ip = array_key_first( array_diff_key( $data, [ 'status'     => 1,
+		                                                      'message'    => 1,
+		                                                      'node'       => 1,
+		                                                      'query time' => 1
+		] ) );
 	}
 
 	/**
@@ -72,7 +76,7 @@ class Response {
 	}
 
 	/**
-	 * Get the proxy type
+	 * Get the proxy type (e.g., 'Residential', 'VPN', etc.)
 	 *
 	 * @return string|null
 	 */
@@ -90,12 +94,64 @@ class Response {
 	}
 
 	/**
+	 * Get the organization name
+	 *
+	 * @return string|null
+	 */
+	public function get_organisation(): ?string {
+		return $this->data[ $this->ip ]['organisation'] ?? null;
+	}
+
+	/**
 	 * Get the risk score (0-100)
 	 *
 	 * @return int|null
 	 */
 	public function get_risk_score(): ?int {
 		return isset( $this->data[ $this->ip ]['risk'] ) ? (int) $this->data[ $this->ip ]['risk'] : null;
+	}
+
+	/**
+	 * Get the hostname if available
+	 *
+	 * @return string|null
+	 */
+	public function get_hostname(): ?string {
+		return $this->data[ $this->ip ]['hostname'] ?? null;
+	}
+
+	/**
+	 * Get the IP range
+	 *
+	 * @return string|null
+	 */
+	public function get_range(): ?string {
+		return $this->data[ $this->ip ]['range'] ?? null;
+	}
+
+	/**
+	 * Get ASN information
+	 *
+	 * @return string|null
+	 */
+	public function get_asn(): ?string {
+		return $this->data[ $this->ip ]['asn'] ?? null;
+	}
+
+	/**
+	 * Get device information
+	 *
+	 * @return array|null
+	 */
+	public function get_devices(): ?array {
+		if ( ! isset( $this->data[ $this->ip ]['devices'] ) ) {
+			return null;
+		}
+
+		return [
+			'address' => (int) ( $this->data[ $this->ip ]['devices']['address'] ?? 0 ),
+			'subnet'  => (int) ( $this->data[ $this->ip ]['devices']['subnet'] ?? 0 ),
+		];
 	}
 
 	/**
@@ -149,23 +205,33 @@ class Response {
 	 * @return array|null
 	 */
 	public function get_operator(): ?array {
-		if ( ! isset( $this->data[ $this->ip ]['operator'] ) ) {
-			return null;
+		$operator = [];
+
+		if ( isset( $this->data[ $this->ip ]['provider'] ) ) {
+			$operator['name'] = $this->data[ $this->ip ]['provider'];
 		}
 
-		return [
-			'name' => $this->data[ $this->ip ]['operator']['name'] ?? null,
-			'asn'  => $this->data[ $this->ip ]['operator']['asn'] ?? null,
-		];
+		if ( isset( $this->data[ $this->ip ]['asn'] ) ) {
+			$operator['asn'] = $this->data[ $this->ip ]['asn'];
+		}
+
+		return ! empty( $operator ) ? $operator : null;
 	}
 
 	/**
 	 * Get continent information
 	 *
-	 * @return string|null
+	 * @return array|null
 	 */
-	public function get_continent(): ?string {
-		return $this->data[ $this->ip ]['continent'] ?? null;
+	public function get_continent(): ?array {
+		if ( ! isset( $this->data[ $this->ip ]['continent'] ) ) {
+			return null;
+		}
+
+		return [
+			'name' => $this->data[ $this->ip ]['continent'] ?? null,
+			'code' => $this->data[ $this->ip ]['continentcode'] ?? null,
+		];
 	}
 
 	/**
@@ -211,6 +277,31 @@ class Response {
 	}
 
 	/**
+	 * Get postal/zip code
+	 *
+	 * @return string|null
+	 */
+	public function get_postcode(): ?string {
+		return $this->data[ $this->ip ]['postcode'] ?? null;
+	}
+
+	/**
+	 * Get location coordinates
+	 *
+	 * @return array|null
+	 */
+	public function get_coordinates(): ?array {
+		if ( ! isset( $this->data[ $this->ip ]['latitude'] ) || ! isset( $this->data[ $this->ip ]['longitude'] ) ) {
+			return null;
+		}
+
+		return [
+			'latitude'  => (float) $this->data[ $this->ip ]['latitude'],
+			'longitude' => (float) $this->data[ $this->ip ]['longitude'],
+		];
+	}
+
+	/**
 	 * Get currency information
 	 *
 	 * @return array|null
@@ -234,6 +325,28 @@ class Response {
 	 */
 	public function get_timezone(): ?string {
 		return $this->data[ $this->ip ]['timezone'] ?? null;
+	}
+
+	/**
+	 * Get query time
+	 *
+	 * @return float|null
+	 */
+	public function get_query_time(): ?float {
+		if ( ! isset( $this->data['query time'] ) ) {
+			return null;
+		}
+
+		return (float) str_replace( 's', '', $this->data['query time'] );
+	}
+
+	/**
+	 * Get node information
+	 *
+	 * @return string|null
+	 */
+	public function get_node(): ?string {
+		return $this->data['node'] ?? null;
 	}
 
 	/**
