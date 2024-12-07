@@ -41,7 +41,12 @@ class DisposableEmailResponse {
 	public function __construct( array $data ) {
 		$this->data = $data;
 		// Extract the email from the response data
-		$this->email = array_key_first( array_diff_key( $data, [ 'status' => 1, 'message' => 1 ] ) );
+		$this->email = array_key_first( array_diff_key( $data, [
+			'status'     => 1,
+			'message'    => 1,
+			'node'       => 1,
+			'query time' => 1
+		] ) );
 	}
 
 	/**
@@ -69,6 +74,28 @@ class DisposableEmailResponse {
 	 */
 	public function is_disposable(): bool {
 		return ( $this->data[ $this->email ]['disposable'] ?? null ) === 'yes';
+	}
+
+	/**
+	 * Get node information
+	 *
+	 * @return string|null
+	 */
+	public function get_node(): ?string {
+		return $this->data['node'] ?? null;
+	}
+
+	/**
+	 * Get query time
+	 *
+	 * @return float|null
+	 */
+	public function get_query_time(): ?float {
+		if ( ! isset( $this->data['query time'] ) ) {
+			return null;
+		}
+
+		return (float) str_replace( 's', '', $this->data['query time'] );
 	}
 
 	/**
