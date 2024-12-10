@@ -1,4 +1,22 @@
 <?php
+/**
+ * Dashboard API Trait
+ *
+ * Provides comprehensive access to ProxyCheck.io's Dashboard API functionality including:
+ * - Usage statistics and token management
+ * - Detection exports and analytics
+ * - Tag management and reporting
+ * - Whitelist/Blocklist management
+ * - CORS origins configuration
+ *
+ * Requires API key and Dashboard API Access to be enabled in proxycheck.io dashboard.
+ * All API responses are cached by default to optimize performance and reduce API calls.
+ *
+ * @package     ArrayPress/ProxyCheck
+ * @copyright   Copyright (c) 2024, ArrayPress Limited
+ * @license     GPL2+
+ * @version     1.0.0
+ */
 
 declare( strict_types=1 );
 
@@ -169,127 +187,7 @@ trait Dashboard {
 		}, $tags );
 	}
 
-	/** Detections (History) ****************************************************/
-
-	/**
-	 * Get token usage information from the API
-	 *
-	 * @return array|WP_Error Token usage info or WP_Error on failure
-	 */
-	public function get_tokens() {
-		$cache_key = $this->get_cache_key( 'tokens' );
-
-		if ( $this->enable_cache ) {
-			$cached_data = get_transient( $cache_key );
-			if ( false !== $cached_data ) {
-				return $cached_data;
-			}
-		}
-
-		$response = $this->make_dashboard_request( 'export/usage/' );
-
-		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
-			set_transient( $cache_key, $response, $this->cache_expiration );
-		}
-
-		return $response;
-	}
-
-	/**
-	 * Get formatted token information
-	 *
-	 * @return array Formatted token information
-	 */
-	public function get_formatted_tokens(): array {
-		$tokens = $this->get_tokens();
-
-		if ( is_wp_error( $tokens ) ) {
-			return [
-				'used'            => 0,
-				'limit'           => 0,
-				'total'           => 0,
-				'plan'            => 'Unknown',
-				'burst_available' => 0,
-				'burst_limit'     => 0,
-				'percentage'      => 0.0,
-				'remaining'       => 0
-			];
-		}
-
-		$used  = (int) ( $tokens['Queries Today'] ?? 0 );
-		$limit = (int) ( $tokens['Daily Limit'] ?? 0 );
-
-		return [
-			'used'            => $used,
-			'limit'           => $limit,
-			'total'           => (int) ( $tokens['Queries Total'] ?? 0 ),
-			'plan'            => $tokens['Plan Tier'] ?? 'Unknown',
-			'burst_available' => (int) ( $tokens['Burst Tokens Available'] ?? 0 ),
-			'burst_limit'     => (int) ( $tokens['Burst Token Allowance'] ?? 0 ),
-			'percentage'      => $limit > 0 ? round( ( $used / $limit ) * 100, 2 ) : 0.0,
-			'remaining'       => max( 0, $limit - $used )
-		];
-	}
-
-	/**
-	 * Get the total number of used tokens today
-	 *
-	 * @return int Number of used tokens
-	 */
-	public function get_used_tokens(): int {
-		$tokens = $this->get_tokens();
-
-		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Queries Today'] ?? 0 );
-	}
-
-	/**
-	 * Get the daily token limit
-	 *
-	 * @return int Daily token limit
-	 */
-	public function get_token_limit(): int {
-		$tokens = $this->get_tokens();
-
-		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Daily Limit'] ?? 0 );
-	}
-
-	/**
-	 * Get remaining available tokens
-	 *
-	 * @return int Number of remaining tokens
-	 */
-	public function get_remaining_tokens(): int {
-		$tokens = $this->get_tokens();
-
-		if ( is_wp_error( $tokens ) ) {
-			return 0;
-		}
-
-		$used  = (int) ( $tokens['Queries Today'] ?? 0 );
-		$limit = (int) ( $tokens['Daily Limit'] ?? 0 );
-
-		return max( 0, $limit - $used );
-	}
-
-	/**
-	 * Get number of available burst tokens
-	 *
-	 * @return int Number of available burst tokens
-	 */
-	public function get_burst_tokens(): int {
-		$tokens = $this->get_tokens();
-
-		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Burst Tokens Available'] ?? 0 );
-	}
-
-	/**
-	 * Check if token limit is exceeded
-	 *
-	 * @return bool True if limit exceeded
-	 */
-	public function is_token_limit_exceeded(): bool {
-		return $this->get_remaining_tokens() <= 0;
-	}
+	/** Export Queries *******************************************************************/
 
 	/**
 	 * Export query statistics for the past 30 days
@@ -319,16 +217,422 @@ trait Dashboard {
 	}
 
 	/**
-	 * Manage custom lists
+	 * Get formatted query statistics
+	 *
+	 * Returns formatted statistical data about API queries for the specified period,
+	 * including daily totals and detection types.
+	 *
+	 * @param int $days Number of days to retrieve (default: 30, max: 30)
+	 *
+	 * @return array Formatted query statistics
+	 */
+	public function get_formatted_queries( int $days = 30 ): array {
+		// Ensure days is within valid range
+		$days = min( max( $days, 1 ), 30 );
+
+		$queries = $this->export_queries();
+
+		if ( is_wp_error( $queries ) ) {
+			return [
+				'period' => $days,
+				'days'   => [],
+				'totals' => [
+					'proxies'           => 0,
+					'vpns'              => 0,
+					'undetected'        => 0,
+					'disposable_emails' => 0,
+					'reusable_emails'   => 0,
+					'refused_queries'   => 0,
+					'custom_rules'      => 0,
+					'blacklisted'       => 0,
+					'total_queries'     => 0
+				]
+			];
+		}
+
+		// Take only the requested number of days
+		$queries = array_slice( $queries, 0, $days, true );
+
+		$days_data = [];
+		$totals    = [
+			'proxies'           => 0,
+			'vpns'              => 0,
+			'undetected'        => 0,
+			'disposable_emails' => 0,
+			'reusable_emails'   => 0,
+			'refused_queries'   => 0,
+			'custom_rules'      => 0,
+			'blacklisted'       => 0,
+			'total_queries'     => 0
+		];
+
+		foreach ( $queries as $day => $stats ) {
+			$formatted_stats = [
+				'day'               => $day,
+				'proxies'           => (int) ( $stats['proxies'] ?? 0 ),
+				'vpns'              => (int) ( $stats['vpns'] ?? 0 ),
+				'undetected'        => (int) ( $stats['undetected'] ?? 0 ),
+				'disposable_emails' => (int) ( $stats['disposable emails'] ?? 0 ),
+				'reusable_emails'   => (int) ( $stats['reusable emails'] ?? 0 ),
+				'refused_queries'   => (int) ( $stats['refused queries'] ?? 0 ),
+				'custom_rules'      => (int) ( $stats['custom rules'] ?? 0 ),
+				'blacklisted'       => (int) ( $stats['blacklisted'] ?? 0 ),
+				'total_queries'     => (int) ( $stats['total queries'] ?? 0 )
+			];
+
+			$days_data[] = $formatted_stats;
+
+			foreach ( $formatted_stats as $key => $value ) {
+				if ( $key !== 'day' ) {
+					$totals[ $key ] += $value;
+				}
+			}
+		}
+
+		$percentages = [];
+		if ( $totals['total_queries'] > 0 ) {
+			foreach ( $totals as $key => $value ) {
+				if ( $key !== 'total_queries' ) {
+					$percentages[ $key ] = round( ( $value / $totals['total_queries'] ) * 100, 2 );
+				}
+			}
+		}
+
+		return [
+			'period'      => $days,
+			'days'        => $days_data,
+			'totals'      => $totals,
+			'percentages' => $percentages,
+			'summary'     => [
+				'period_days'           => $days,
+				'active_days'           => count( array_filter( $days_data, fn( $day ) => $day['total_queries'] > 0 ) ),
+				'total_queries'         => $totals['total_queries'],
+				'detected_threats'      => $totals['proxies'] + $totals['vpns'] + $totals['disposable_emails'],
+				'detection_rate'        => $totals['total_queries'] > 0 ?
+					round( ( ( $totals['proxies'] + $totals['vpns'] + $totals['disposable_emails'] ) /
+					         $totals['total_queries'] ) * 100, 2 ) : 0,
+				'average_daily_queries' => round( $totals['total_queries'] / $days, 2 )
+			]
+		];
+	}
+
+	/** Usage/Tokens *******************************************************************/
+
+	/**
+	 * Get token usage information from the API
+	 *
+	 * @return array|WP_Error Token usage info or WP_Error on failure
+	 */
+	public function get_usage() {
+		$cache_key = $this->get_cache_key( 'usage' );
+
+		if ( $this->enable_cache ) {
+			$cached_data = get_transient( $cache_key );
+			if ( false !== $cached_data ) {
+				return $cached_data;
+			}
+		}
+
+		$response = $this->make_dashboard_request( 'export/usage/' );
+
+		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
+			set_transient( $cache_key, $response, $this->cache_expiration );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Get formatted token usage information
+	 *
+	 * @return array Formatted usage information
+	 */
+	public function get_formatted_usage(): array {
+		$usage = $this->get_usage();
+
+		if ( is_wp_error( $usage ) ) {
+			return [
+				'used'            => 0,
+				'limit'           => 0,
+				'total'           => 0,
+				'plan'            => 'Unknown',
+				'burst_available' => 0,
+				'burst_limit'     => 0,
+				'percentage'      => 0.0,
+				'remaining'       => 0
+			];
+		}
+
+		$used  = (int) ( $usage['Queries Today'] ?? 0 );
+		$limit = (int) ( $usage['Daily Limit'] ?? 0 );
+
+		return [
+			'used'            => $used,
+			'limit'           => $limit,
+			'total'           => (int) ( $usage['Queries Total'] ?? 0 ),
+			'plan'            => $usage['Plan Tier'] ?? 'Unknown',
+			'burst_available' => (int) ( $usage['Burst Tokens Available'] ?? 0 ),
+			'burst_limit'     => (int) ( $usage['Burst Token Allowance'] ?? 0 ),
+			'percentage'      => $limit > 0 ? round( ( $used / $limit ) * 100, 2 ) : 0.0,
+			'remaining'       => max( 0, $limit - $used )
+		];
+	}
+
+	/**
+	 * Get the total number of used tokens today
+	 *
+	 * @return int Number of used tokens
+	 */
+	public function get_used_tokens(): int {
+		$tokens = $this->get_usage();
+
+		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Queries Today'] ?? 0 );
+	}
+
+	/**
+	 * Get the daily token limit
+	 *
+	 * @return int Daily token limit
+	 */
+	public function get_token_limit(): int {
+		$tokens = $this->get_usage();
+
+		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Daily Limit'] ?? 0 );
+	}
+
+	/**
+	 * Get remaining available tokens
+	 *
+	 * @return int Number of remaining tokens
+	 */
+	public function get_remaining_tokens(): int {
+		$tokens = $this->get_usage();
+
+		if ( is_wp_error( $tokens ) ) {
+			return 0;
+		}
+
+		$used  = (int) ( $tokens['Queries Today'] ?? 0 );
+		$limit = (int) ( $tokens['Daily Limit'] ?? 0 );
+
+		return max( 0, $limit - $used );
+	}
+
+	/**
+	 * Get number of available burst tokens
+	 *
+	 * @return int Number of available burst tokens
+	 */
+	public function get_burst_tokens(): int {
+		$tokens = $this->get_usage();
+
+		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Burst Tokens Available'] ?? 0 );
+	}
+
+	/**
+	 * Check if token limit is exceeded
+	 *
+	 * @return bool True if limit exceeded
+	 */
+	public function is_token_limit_exceeded(): bool {
+		return $this->get_remaining_tokens() <= 0;
+	}
+
+	/** Blacklist Management *******************************************************/
+
+	/**
+	 * Get blocklist entries
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function get_blocklist() {
+		return $this->manage_list( 'print', 'blacklist' );
+	}
+
+	/**
+	 * Set blocklist entries (replaces existing entries)
+	 *
+	 * @param string|array $ips IPs to set as the blocklist
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function set_blocklist( $ips ) {
+		$formatted_ips = $this->format_list( $ips );
+
+		return $this->manage_list( 'set', 'blacklist', $formatted_ips );
+	}
+
+	/**
+	 * Add IP address to blocklist
+	 *
+	 * @param string|array $ips Single IP or array of IPs to add
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function add_to_blocklist( $ips ) {
+		$formatted_ips = $this->format_list( $ips );
+
+		return $this->manage_list( 'add', 'blacklist', $formatted_ips );
+	}
+
+	/**
+	 * Remove IP address from blocklist
+	 *
+	 * @param string|array $ips Single IP or array of IPs to remove
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function remove_from_blocklist( $ips ) {
+		$formatted_ips = $this->format_list( $ips );
+
+		return $this->manage_list( 'remove', 'blacklist', $formatted_ips );
+	}
+
+	/**
+	 * Clear entire blocklist
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function clear_blocklist() {
+		return $this->manage_list( 'clear', 'blacklist' );
+	}
+
+	/** Whitelist Management *******************************************************/
+
+	/**
+	 * Get whitelist entries
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function get_whitelist() {
+		return $this->manage_list( 'print', 'whitelist' );
+	}
+
+	/**
+	 * Set whitelist entries (replaces existing entries)
+	 *
+	 * @param string|array $ips IPs to set as the whitelist
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function set_whitelist( $ips ) {
+		$formatted_ips = $this->format_list( $ips );
+
+		return $this->manage_list( 'set', 'whitelist', $formatted_ips );
+	}
+
+	/**
+	 * Add IP address to whitelist
+	 *
+	 * @param string|array $ips Single IP or array of IPs to add
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function add_to_whitelist( $ips ) {
+		$formatted_ips = $this->format_list( $ips );
+
+		return $this->manage_list( 'add', 'whitelist', $formatted_ips );
+	}
+
+	/**
+	 * Remove IP address from whitelist
+	 *
+	 * @param string|array $ips Single IP or array of IPs to remove
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function remove_from_whitelist( $ips ) {
+		$formatted_ips = $this->format_list( $ips );
+
+		return $this->manage_list( 'remove', 'whitelist', $formatted_ips );
+	}
+
+	/**
+	 * Clear entire whitelist
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function clear_whitelist() {
+		return $this->manage_list( 'clear', 'whitelist' );
+	}
+
+	/** CORS Origins Management *******************************************************/
+
+	/**
+	 * Get CORS origins list
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function get_cors_origins() {
+		return $this->manage_list( 'list', 'cors' );
+	}
+
+	/**
+	 * Set CORS origins (replaces existing entries)
+	 *
+	 * @param string|array $origins Origins to set
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function set_cors_origins( $origins ) {
+		$formatted_origins = $this->format_list( $origins );
+
+		return $this->manage_list( 'set', 'cors', $formatted_origins );
+	}
+
+	/**
+	 * Add CORS origins
+	 *
+	 * @param string|array $origins Origins to add
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function add_cors_origins( $origins ) {
+		$formatted_origins = $this->format_list( $origins );
+
+		return $this->manage_list( 'add', 'cors', $formatted_origins );
+	}
+
+	/**
+	 * Remove CORS origins
+	 *
+	 * @param string|array $origins Origins to remove
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function remove_cors_origins( $origins ) {
+		$formatted_origins = $this->format_list( $origins );
+
+		return $this->manage_list( 'remove', 'cors', $formatted_origins );
+	}
+
+	/**
+	 * Clear all CORS origins
+	 *
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 */
+	public function clear_cors_origins() {
+		return $this->manage_list( 'clear', 'cors' );
+	}
+
+	/** List Helpers *******************************************************************/
+
+	/**
+	 * Manage custom lists and CORS origins
 	 *
 	 * @param string      $action Action to perform (print|add|remove|set|clear|erase|forcedl)
-	 * @param string|null $list   List name (optional)
+	 * @param string|null $list   List name (whitelist|blacklist|cors) or null
 	 * @param string|null $data   Data for add/remove/set actions (optional)
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function manage_list( string $action, ?string $list = null, ?string $data = null ) {
 		$valid_actions = [ 'print', 'add', 'remove', 'set', 'clear', 'erase', 'forcedl' ];
+
+		// Handle 'list' action for CORS (equivalent to 'print')
+		if ( $list === 'cors' && $action === 'list' ) {
+			$action = 'print';
+		}
 
 		if ( ! in_array( $action, $valid_actions ) ) {
 			return new WP_Error(
@@ -337,32 +641,23 @@ trait Dashboard {
 			);
 		}
 
-		// Adjust endpoint to match their format
-		$endpoint = $list . '/list/';
-
-		if ( $action !== 'print' ) {
-			$endpoint = $list . '/' . $action . '/';  // e.g., 'blacklist/add/'
+		// Build endpoint based on list type
+		if ( $list === 'cors' ) {
+			$endpoint = 'cors/' . ( $action === 'print' ? 'list' : $action ) . '/';
+		} else {
+			$endpoint = $action === 'print' ?
+				$list . '/list/' :
+				$list . '/' . $action . '/';
 		}
 
 		$params = [ 'json' => 1 ];
 		$args   = [];
 
 		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ] ) ) {
-			// Their API expects POST data in a specific format
-			if ( $action === 'add' || $action === 'remove' ) {
-				$args = [
-					'method' => 'POST',
-					'body'   => [
-						'action' => $action,
-						'data'   => $data
-					]
-				];
-			} else {
-				$args = [
-					'method' => 'POST',
-					'body'   => [ 'data' => $data ]
-				];
-			}
+			$args = [
+				'method' => 'POST',
+				'body'   => [ 'data' => $data ]
+			];
 		}
 
 		$response = $this->make_dashboard_request( $endpoint, $params, $args );
@@ -382,174 +677,23 @@ trait Dashboard {
 	}
 
 	/**
-	 * Manage CORS origins
+	 * Format list entries
 	 *
-	 * @param string      $action Action to perform (list|add|remove|set|clear)
-	 * @param string|null $data   Data for add/remove/set actions (optional)
+	 * @param string|array $items Items to format
 	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
+	 * @return string Formatted list
 	 */
-	public function manage_cors( string $action, ?string $data = null ) {
-		$valid_actions = [ 'list', 'add', 'remove', 'set', 'clear' ];
+	private function format_list( $items ): string {
+		if ( is_array( $items ) ) {
+			$items = array_map( 'trim', $items );
 
-		if ( ! in_array( $action, $valid_actions ) ) {
-			return new WP_Error(
-				'invalid_action',
-				sprintf( __( 'Invalid CORS action: %s', 'arraypress' ), $action )
-			);
+			return implode( "\n", array_filter( $items ) );
 		}
 
-		$endpoint = 'cors/' . $action . '/';
-		$params   = [ 'json' => 1 ];
-		$args     = [];
-
-		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ] ) ) {
-			$args = [
-				'method' => 'POST',
-				'body'   => [ 'data' => $data ]
-			];
-		}
-
-		$response = $this->make_dashboard_request( $endpoint, $params, $args );
-
-		if ( is_wp_error( $response ) ) {
-			return $response;
-		}
-
-		return new ListEntries( $response );
+		return trim( $items );
 	}
 
-	/**
-	 * Add IP address to whitelist
-	 *
-	 * @param string|array $ips Single IP or array of IPs to add
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function add_to_whitelist( $ips ) {
-		$formatted_ips = $this->format_ip_list( $ips );
-
-		return $this->manage_list( 'add', 'whitelist', $formatted_ips );
-	}
-
-	/**
-	 * Remove IP address from whitelist
-	 *
-	 * @param string|array $ips Single IP or array of IPs to remove
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function remove_from_whitelist( $ips ) {
-		$formatted_ips = $this->format_ip_list( $ips );
-
-		return $this->manage_list( 'remove', 'whitelist', $formatted_ips );
-	}
-
-	/**
-	 * Add IP address to blocklist
-	 *
-	 * @param string|array $ips Single IP or array of IPs to add
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function add_to_blocklist( $ips ) {
-		$formatted_ips = $this->format_ip_list( $ips );
-
-		return $this->manage_list( 'add', 'blacklist', $formatted_ips );
-	}
-
-	/**
-	 * Remove IP address from blocklist
-	 *
-	 * @param string|array $ips Single IP or array of IPs to remove
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function remove_from_blocklist( $ips ) {
-		$formatted_ips = $this->format_ip_list( $ips );
-
-		return $this->manage_list( 'remove', 'blacklist', $formatted_ips );
-	}
-
-	/**
-	 * Get whitelist entries
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function get_whitelist() {
-		return $this->manage_list( 'print', 'whitelist' );
-	}
-
-	/**
-	 * Get blocklist entries
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function get_blocklist() {
-		return $this->manage_list( 'print', 'blacklist' );
-	}
-
-
-	/**
-	 * Clear entire whitelist
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function clear_whitelist() {
-		return $this->manage_list( 'clear', 'whitelist' );
-	}
-
-	/**
-	 * Clear entire blocklist
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function clear_blocklist() {
-		return $this->manage_list( 'clear', 'blacklist' );
-	}
-
-	/**
-	 * Set whitelist entries (replaces existing entries)
-	 *
-	 * @param string|array $ips IPs to set as the whitelist
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function set_whitelist( $ips ) {
-		$formatted_ips = $this->format_ip_list( $ips );
-
-		return $this->manage_list( 'set', 'whitelist', $formatted_ips );
-	}
-
-	/**
-	 * Set blocklist entries (replaces existing entries)
-	 *
-	 * @param string|array $ips IPs to set as the blocklist
-	 *
-	 * @return ListEntries|WP_Error Response object or WP_Error on failure
-	 */
-	public function set_blocklist( $ips ) {
-		$formatted_ips = $this->format_ip_list( $ips );
-
-		return $this->manage_list( 'set', 'blacklist', $formatted_ips );
-	}
-
-	/**
-	 * Format IP addresses for list management
-	 *
-	 * @param string|array $ips Single IP or array of IPs
-	 *
-	 * @return string Formatted IP list
-	 */
-	private function format_ip_list( $ips ): string {
-		if ( is_array( $ips ) ) {
-			$ips = array_map( 'trim', $ips );
-
-			return implode( "\n", array_filter( $ips ) );
-		}
-
-		return trim( $ips );
-	}
+	/** Request Methods *******************************************************************/
 
 	/**
 	 * Make a request to the Dashboard API

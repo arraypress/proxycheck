@@ -1,6 +1,16 @@
 # ProxyCheck Library for WordPress
 
-A WordPress library for ProxyCheck.io API integration providing proxy & VPN detection, disposable email verification, and risk assessment with smart caching.
+A comprehensive WordPress library for ProxyCheck.io integration, providing proxy & VPN detection, email verification, risk assessment, and complete dashboard management with intelligent caching.
+
+## Features
+
+- 🔍 **IP Analysis**: Detect proxies, VPNs, and assess risk levels
+- ✉️ **Email Verification**: Check for disposable email services
+- 📊 **Usage Analytics**: Track and manage API usage and quotas
+- 📋 **List Management**: Handle whitelists, blocklists, and CORS origins
+- 📈 **Statistics**: Access detection history and query analytics
+- 🏷️ **Tag Management**: Track and analyze tagged queries
+- 💾 **Smart Caching**: Optimize performance and reduce API calls
 
 ## Installation
 
@@ -13,279 +23,261 @@ composer require arraypress/proxycheck
 ## Requirements
 
 - PHP 7.4 or later
-- WordPress 6.2.2 or later
+- WordPress 6.7.1 or later
 - ProxyCheck.io API key
+- Dashboard API Access enabled (for dashboard features)
 
 ## Basic Usage
 
 ```php
 use ArrayPress\ProxyCheck\Client;
 
-// Initialize with your API key
-$client = new Client('your-key-here');
-
-// Check a single IP address
-$check = $client->check_ip('1.1.1.1');
-
-// Check with additional options
-$check = $client->check_ip('1.1.1.1', [
-    'vpn'  => 1,    // Enable VPN detection
-    'asn'  => 1,    // Include ASN data
-    'risk' => 1     // Include risk scoring
-]);
-
-// Check multiple IPs
-$ips = ['1.1.1.1', '8.8.8.8'];
-$results = $client->check_ips($ips);
-
-// Check if an email is disposable
-$email_check = $client->check_email('test@example.com');
-```
-
-## Available Methods
-
-### Client Methods
-
-```php
-// Initialize client with options
+// Initialize with API key
 $client = new Client(
-    'your-key-here',     // API key
-    true,                // Enable caching (optional, default: true)
-    600                  // Cache duration in seconds (optional, default: 600)
+    'your-key-here',    // API key
+    true,               // Enable caching (optional)
+    600,                // Cache duration in seconds (optional)
+    'custom_prefix_'    // Cache prefix (optional)
 );
 
 // Check single IP
-$check = $client->check_ip('1.1.1.1');
+$result = $client->check_ip( '1.1.1.1' );
 
 // Check multiple IPs
-$checks = $client->check_ips(['1.1.1.1', '8.8.8.8']);
+$results = $client->check_ips( [ '1.1.1.1', '8.8.8.8' ] );
 
+// Check email
+$email = $client->check_email( 'test@example.com', true ); // Second param enables email masking
+```
+
+## IP & Email Detection
+
+### Checking IPs
+
+```php
+// Basic check with default options
+$result = $client->check_ip( '1.1.1.1' );
+
+// Check with custom options
+$result = $client->check_ip( '1.1.1.1', [
+    'vpn'  => 1,    // Enable VPN detection
+    'asn'  => 1,    // Include ASN data
+    'risk' => 2,    // Include attack history
+    'port' => 1,    // Check port
+    'seen' => 1,    // Include last seen
+    'days' => 7     // History period
+] );
+
+// Batch check multiple IPs
+$results = $client->check_ips( [ '1.1.1.1', '8.8.8.8' ] );
+
+// Access results
+if ( $result->is_proxy() ) {
+    echo "Proxy detected! Type: " . $result->get_type();
+    echo "Risk score: " . $result->get_risk_score();
+}
+```
+
+### Checking Emails
+
+```php
 // Check disposable email
-$email = $client->check_email('test@example.com');
+$result = $client->check_email( 'test@example.com' );
 
-// Cache management
-$client->clear_cache('1.1.1.1');  // Clear specific IP
-$client->clear_cache();           // Clear all cached data
+// With privacy masking
+$result = $client->check_email( 'user@example.com', true ); // Masks as anonymous@example.com
+
+if ( $result->is_disposable() ) {
+    echo "Disposable email detected!";
+}
 ```
 
-### Response Methods for IP Checks
+## Dashboard Management
+
+### Usage & Statistics
 
 ```php
-// Get IP address
-$ip = $check->get_ip();
-// Returns: "1.1.1.1"
+// Get usage information
+$usage = $client->get_formatted_usage();
+echo "Used today: " . $usage['used'] . " of " . $usage['limit'];
+echo "Plan: " . $usage['plan'];
 
-// Check if it's a proxy
-$is_proxy = $check->is_proxy();
-// Returns: true/false
+// Quick usage checks
+$used = $client->get_used_tokens();
+$remaining = $client->get_remaining_tokens();
+$is_exceeded = $client->is_token_limit_exceeded();
 
-// Get proxy type
-$type = $check->get_type();
-// Returns: "VPN", "TOR", "SOCKS4", etc.
-
-// Get risk score (0-100)
-$risk = $check->get_risk_score();
-// Returns: 25
-
-// Get attack history (requires risk=2 flag)
-$attacks = $check->get_attack_history();
-// Returns: [
-//     'login_attempts' => 5,
-//     'comment_spam' => 2,
-//     ...
-// ]
-
-// Get proxy port
-$port = $check->get_port();
-// Returns: 8080
-
-// Get last seen timestamp
-$seen = $check->get_last_seen();
-// Returns: "2024-01-15 14:30:00"
-
-// Get operator/ASN info
-$operator = $check->get_operator();
-// Returns: [
-//     'name' => 'Cloudflare, Inc.',
-//     'asn'  => 'AS13335'
-// ]
-
-// Get location information
-$continent = $check->get_continent();
-// Returns: "North America"
-
-$country = $check->get_country();
-// Returns: [
-//     'name'  => 'United States',
-//     'code'  => 'US',
-//     'is_eu' => false
-// ]
-
-$region = $check->get_region();
-// Returns: [
-//     'name' => 'California',
-//     'code' => 'CA'
-// ]
-
-$city = $check->get_city();
-// Returns: "Los Angeles"
-
-// Get currency information
-$currency = $check->get_currency();
-// Returns: [
-//     'code'   => 'USD',
-//     'name'   => 'US Dollar',
-//     'symbol' => '$'
-// ]
-
-// Get timezone
-$timezone = $check->get_timezone();
-// Returns: "America/Los_Angeles"
-
-// Check VPN status (requires vpn flag)
-$is_vpn = $check->is_vpn();
-// Returns: true/false
-
-// Get response status
-$status = $check->get_status();
-// Returns: "ok", "warning", "denied", or "error"
-
-// Get error message
-$message = $check->get_message();
-// Returns: error message if present
-
-// Check if query was successful
-$success = $check->is_successful();
-// Returns: true/false
+// Get detailed query statistics
+$stats = $client->get_formatted_queries( 7 ); // Last 7 days
+print_r( $stats['summary'] );
 ```
 
-### Response Methods for Email Checks
+### List Management
 
 ```php
-// Get checked email address
-$email = $check->get_email();
-// Returns: "test@example.com"
+// Whitelist Management
+$client->get_whitelist();
+$client->add_to_whitelist( '1.1.1.1' );
+$client->add_to_whitelist( ['1.1.1.1', '2.2.2.2' ] );
+$client->remove_from_whitelist( '1.1.1.1' );
+$client->set_whitelist( ['1.1.1.1', '2.2.2.2' ] ); // Replace all
+$client->clear_whitelist();
 
-// Check if email is disposable
-$is_disposable = $check->is_disposable();
-// Returns: true/false
+// Blocklist Management
+$client->get_blocklist();
+$client->add_to_blocklist( '1.1.1.1' );
+$client->remove_from_blocklist( '1.1.1.1' );
+$client->set_blocklist( ['1.1.1.1', '2.2.2.2' ] );
+$client->clear_blocklist();
 
-// Get response status
-$status = $check->get_status();
-// Returns: "ok", "warning", "denied", or "error"
-
-// Get error message
-$message = $check->get_message();
-// Returns: error message if present
-
-// Check if query was successful
-$success = $check->is_successful();
-// Returns: true/false
+// CORS Origins Management
+$client->get_cors_origins();
+$client->add_cors_origins( 'https://example.com' );
+$client->remove_cors_origins( 'https://example.com' );
+$client->set_cors_origins( [ 'https://example.com', 'https://test.com' ] );
+$client->clear_cors_origins();
 ```
 
-## Response Format Examples
+### Detection Analytics
+
+```php
+// Get recent detections
+$detections = $client->get_formatted_detections( 100 ); // Last 100 entries
+
+// Get tagged queries
+$tags = $client->get_formatted_tags( [
+    'limit' => 100,
+    'days' => 7,
+    'addresses' => true
+] );
+```
+
+## Response Methods
 
 ### IP Check Response
 
 ```php
+// Basic Information
+$ip = $result->get_ip();
+$is_proxy = $result->is_proxy();
+$type = $result->get_type();
+$risk = $result->get_risk_score();
+$is_vpn = $result->is_vpn();
+
+// Attack History
+$attacks = $result->get_attack_history();
+
+// Network Information
+$port = $result->get_port();
+$seen = $result->get_last_seen();
+$operator = $result->get_operator();
+$operator_details = $result->get_operator_details(); // Full details including protocols
+
+// Location Information
+$continent = $result->get_continent();
+$country = $result->get_country();
+$region = $result->get_region();
+$city = $result->get_city();
+$coordinates = $result->get_coordinates();
+$timezone = $result->get_timezone();
+$currency = $result->get_currency();
+
+// Block Status
+$should_block = $result->should_block();
+$block_reason = $result->get_block_reason();
+$block_details = $result->get_block_details();
+```
+
+### Usage Statistics Response
+
+```php
 [
-    'status' => 'ok',
-    '1.1.1.1' => [
-        'proxy'     => 'yes',
-        'type'      => 'VPN',
-        'risk'      => 25,
-        'port'      => 8080,
-        'seen'      => '2024-01-15 14:30:00',
-        'provider'  => 'Cloudflare, Inc.',
-        'continent' => 'North America',
-        'country'   => 'United States',
-        'isocode'   => 'US',
-        'region'    => 'California',
-        'regioncode'=> 'CA',
-        'city'      => 'Los Angeles',
-        'timezone'  => 'America/Los_Angeles',
-        'currency'  => [
-            'code'   => 'USD',
-            'name'   => 'US Dollar',
-            'symbol' => '$'
-        ],
-        'operator'  => [
-            'name' => 'Cloudflare, Inc.',
-            'asn'  => 'AS13335'
+    'used' => 1234,              // Queries used today
+    'limit' => 5000,             // Daily query limit
+    'total' => 50000,            // Total queries made
+    'plan' => 'Premium',         // Account tier
+    'burst_available' => 100,    // Available burst tokens
+    'burst_limit' => 1000,       // Burst token allowance
+    'percentage' => 24.68,       // Usage percentage
+    'remaining' => 3766          // Remaining queries
+]
+```
+
+### Query Statistics Response
+
+```php
+[
+    'period' => 7,               // Days included
+    'days' => [                  // Daily statistics
+        [
+            'day' => 'TODAY',
+            'proxies' => 10,
+            'vpns' => 5,
+            'undetected' => 85,
+            'total_queries' => 100
+            // ... more metrics
         ]
+    ],
+    'totals' => [               // Period totals
+        'proxies' => 50,
+        'vpns' => 25,
+        // ... more totals
+    ],
+    'percentages' => [          // Usage percentages
+        'proxies' => 15.5,
+        'vpns' => 7.8,
+        // ... more percentages
+    ],
+    'summary' => [              // Overview
+        'period_days' => 7,
+        'active_days' => 5,
+        'total_queries' => 500,
+        'detected_threats' => 75,
+        'detection_rate' => 15.0,
+        'average_daily_queries' => 71.4
     ]
-]
-```
-
-### Email Check Response
-
-```php
-[
-    'status' => 'ok',
-    'test@example.com' => [
-        'disposable' => 'yes'
-    ]
-]
-```
-
-### Batch Processing Response
-
-```php
-$results = $client->check_ips(['1.1.1.1', '8.8.8.8']);
-// Returns:
-[
-    '1.1.1.1' => Response Object,
-    '8.8.8.8' => Response Object
 ]
 ```
 
 ## Error Handling
 
-The library uses WordPress's `WP_Error` for error handling:
+The library uses WordPress's `WP_Error` for consistent error handling:
 
 ```php
-$check = $client->check_ip('invalid-ip');
+$result = $client->check_ip( 'invalid-ip' );
 
-if (is_wp_error($check)) {
-    echo $check->get_error_message();
-    // Output: "Invalid IP address: invalid-ip"
+if ( is_wp_error( $result ) ) {
+    $code = $result->get_error_code();
+    $message = $result->get_error_message();
+    echo "Error ($code): $message";
 }
 ```
 
-Common error cases:
-- Invalid IP address
-- Invalid email address
-- Invalid API key
-- API request failure
-- Query limit exceeded
-- Invalid response format
+## Caching
 
-## Query Flags
-
-The API supports various query flags for customizing responses:
+The library implements intelligent caching to optimize performance:
 
 ```php
-$options = [
-    'vpn'  => 1,     // VPN detection (0 = off, 1 = on with proxy priority, 2 = VPN only, 3 = both)
-    'asn'  => 1,     // Include ASN data
-    'node' => 1,     // Show which node answered the query
-    'time' => 1,     // Show query processing time
-    'risk' => 1,     // Include risk score (1 = score only, 2 = score with attack history)
-    'port' => 1,     // Show detected port number
-    'seen' => 1,     // Show when proxy was last seen
-    'days' => 7,     // Days of historical data to check (default: 7)
-    'tag'  => 'msg'  // Custom tag for query
-];
+// Configure caching
+$client->set_cache_enabled( true );
+$client->set_cache_expiration( 3600 );  // 1 hour
+$client->set_cache_prefix( 'my_plugin_' );
 
-$check = $client->check_ip('1.1.1.1', $options);
+// Clear cache
+$client->clear_cache();               // All cache
+$client->clear_cache( '1.1.1.1' );     // Specific entry
 ```
 
-## Contributions
+## Contributing
 
-Contributions to this library are highly appreciated. Raise issues on GitHub or submit pull requests for bug fixes or new features. Share feedback and suggestions for improvements.
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-## License: GPLv2 or later
+## License
 
-This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+Licensed under the GPLv2 or later license.
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+## Support
+
+- [Documentation](https://proxycheck.io/api/)
+- [Dashboard Access](https://proxycheck.io/dashboard/)
+- [Issue Tracker](https://github.com/arraypress/proxycheck/issues)
