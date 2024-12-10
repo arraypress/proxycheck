@@ -113,25 +113,45 @@ trait Dashboard {
 			);
 		}
 
-		$endpoint = 'lists/' . $action . '/';
-		if ( $list !== null ) {
-			$endpoint .= $list;
+		// Adjust endpoint to match their format
+		$endpoint = $list . '/list/';  // e.g., 'blacklist/list/' instead of 'lists/print/blacklist'
+
+		if ( $action !== 'print' ) {
+			$endpoint = $list . '/' . $action . '/';  // e.g., 'blacklist/add/'
 		}
 
 		$params = [ 'json' => 1 ];
-		$args = [];
+		$args   = [];
 
 		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ] ) ) {
-			$args = [
-				'method' => 'POST',
-				'body'   => [ 'data' => $data ]
-			];
+			// Their API expects POST data in a specific format
+			if ( $action === 'add' || $action === 'remove' ) {
+				$args = [
+					'method' => 'POST',
+					'body'   => [
+						'action' => $action,
+						'data'   => $data
+					]
+				];
+			} else {
+				$args = [
+					'method' => 'POST',
+					'body'   => [ 'data' => $data ]
+				];
+			}
 		}
 
 		$response = $this->make_dashboard_request( $endpoint, $params, $args );
 
 		if ( is_wp_error( $response ) ) {
 			return $response;
+		}
+
+		if ( isset( $response['status'] ) && $response['status'] === 'denied' ) {
+			return new WP_Error(
+				'api_access_denied',
+				$response['message'] ?? __( 'API access denied. Please enable Dashboard API Access in your proxycheck.io dashboard.', 'arraypress' )
+			);
 		}
 
 		return new ListEntries( $response );
@@ -156,8 +176,8 @@ trait Dashboard {
 		}
 
 		$endpoint = 'cors/' . $action . '/';
-		$params = [ 'json' => 1 ];
-		$args = [];
+		$params   = [ 'json' => 1 ];
+		$args     = [];
 
 		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ] ) ) {
 			$args = [
@@ -211,7 +231,7 @@ trait Dashboard {
 	public function add_to_blocklist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
 
-		return $this->manage_list( 'add', 'blocklist', $formatted_ips );
+		return $this->manage_list( 'add', 'blacklist', $formatted_ips );
 	}
 
 	/**
@@ -224,7 +244,7 @@ trait Dashboard {
 	public function remove_from_blocklist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
 
-		return $this->manage_list( 'remove', 'blocklist', $formatted_ips );
+		return $this->manage_list( 'remove', 'blacklist', $formatted_ips );
 	}
 
 	/**
@@ -242,8 +262,9 @@ trait Dashboard {
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function get_blocklist() {
-		return $this->manage_list( 'print', 'blocklist' );
+		return $this->manage_list( 'print', 'blacklist' );
 	}
+
 
 	/**
 	 * Clear entire whitelist
@@ -260,7 +281,7 @@ trait Dashboard {
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function clear_blocklist() {
-		return $this->manage_list( 'clear', 'blocklist' );
+		return $this->manage_list( 'clear', 'blacklist' );
 	}
 
 	/**
@@ -286,7 +307,7 @@ trait Dashboard {
 	public function set_blocklist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
 
-		return $this->manage_list( 'set', 'blocklist', $formatted_ips );
+		return $this->manage_list( 'set', 'blacklist', $formatted_ips );
 	}
 
 	/**
