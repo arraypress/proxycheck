@@ -50,22 +50,33 @@ class ListEntries {
 	 * @return array Array of entries in the list
 	 */
 	public function get_entries(): array {
-		if ( isset( $this->data['list'] ) ) {
-			$entries = trim( $this->data['list'] );
+		// Check for empty list message
+		if ( isset( $this->data['message'] ) && $this->data['message'] === 'This list is empty.' ) {
+			return [];
+		}
 
-			return ! empty( $entries ) ? explode( "\n", $entries ) : [];
+		// Check for addresses array
+		if ( isset( $this->data['addresses'] ) && is_array( $this->data['addresses'] ) ) {
+			return $this->data['addresses'];
+		}
+
+		// Check for Raw array (alternative format)
+		if ( isset( $this->data['Raw'] ) && is_array( $this->data['Raw'] ) ) {
+			return array_filter( $this->data['Raw'] ); // Remove any empty entries
 		}
 
 		return [];
 	}
 
 	/**
-	 * Get origin count (for CORS responses)
+	 * Convert the entries to a string
 	 *
-	 * @return int|null
+	 * @return string
 	 */
-	public function get_origin_count(): ?int {
-		return $this->data['origin_count'] ?? null;
+	public function __toString(): string {
+		$entries = $this->get_entries();
+
+		return ! empty( $entries ) ? implode( "\n", $entries ) : '';
 	}
 
 	/**
@@ -74,27 +85,7 @@ class ListEntries {
 	 * @return bool
 	 */
 	public function is_empty(): bool {
-		$entries = $this->get_entries();
-
-		return empty( $entries );
-	}
-
-	/**
-	 * Get count of entries
-	 *
-	 * @return int
-	 */
-	public function count(): int {
-		return count( $this->get_entries() );
-	}
-
-	/**
-	 * Check if operation was successful
-	 *
-	 * @return bool
-	 */
-	public function is_successful(): bool {
-		return ( $this->data['status'] ?? 'ok' ) === 'ok';
+		return empty( $this->get_entries() );
 	}
 
 	/**
@@ -107,7 +98,7 @@ class ListEntries {
 	}
 
 	/**
-	 * Get error or success message
+	 * Get message
 	 *
 	 * @return string|null
 	 */
@@ -116,12 +107,11 @@ class ListEntries {
 	}
 
 	/**
-	 * Convert the entries to a string
+	 * Check if operation was successful
 	 *
-	 * @return string
+	 * @return bool
 	 */
-	public function __toString(): string {
-		return implode( "\n", $this->get_entries() );
+	public function is_successful(): bool {
+		return ( $this->data['status'] ?? '' ) === 'ok';
 	}
-
 }
