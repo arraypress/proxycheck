@@ -273,7 +273,7 @@ class Client {
 							'query time' => $response['query time'] ?? null,
 							$ip          => $response[ $ip ]
 						];
-						$results[ $ip ]  = new Response( $single_response );
+						$results[ $ip ]  = new IP( $single_response );
 					} catch ( Exception $e ) {
 						return new WP_Error(
 							'response_error',
