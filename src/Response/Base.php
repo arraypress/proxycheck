@@ -1,6 +1,6 @@
 <?php
 /**
- * ProxyCheck.io Disposable Email Response Class
+ * ProxyCheck.io Base Response Class
  *
  * @package     ArrayPress/ProxyCheck
  * @copyright   Copyright (c) 2024, ArrayPress Limited
@@ -10,28 +10,28 @@
 
 declare( strict_types=1 );
 
-namespace ArrayPress\ProxyCheck;
+namespace ArrayPress\ProxyCheck\Response;
 
 /**
- * Class DisposableEmailResponse
+ * Abstract class BaseResponse
  *
- * Handles response data from the ProxyCheck.io API for disposable email checks.
+ * Base response handler for ProxyCheck.io API responses.
  */
-class DisposableEmailResponse {
+abstract class Base {
 
 	/**
 	 * Raw response data from the API
 	 *
 	 * @var array
 	 */
-	private array $data;
+	protected array $data;
 
 	/**
-	 * The email address being checked
+	 * The identifier (IP or email) being checked
 	 *
 	 * @var string
 	 */
-	private string $email;
+	protected string $identifier;
 
 	/**
 	 * Initialize the response object
@@ -39,14 +39,16 @@ class DisposableEmailResponse {
 	 * @param array $data Raw response data from ProxyCheck API
 	 */
 	public function __construct( array $data ) {
+
 		$this->data = $data;
-		// Extract the email from the response data
-		$this->email = array_key_first( array_diff_key( $data, [
+		// Extract the identifier from the response data
+		$this->identifier = array_key_first( array_diff_key( $data, [
 			'status'     => 1,
 			'message'    => 1,
 			'node'       => 1,
 			'query time' => 1
 		] ) );
+
 	}
 
 	/**
@@ -56,24 +58,6 @@ class DisposableEmailResponse {
 	 */
 	public function get_all(): array {
 		return $this->data;
-	}
-
-	/**
-	 * Get the email address that was checked
-	 *
-	 * @return string|null
-	 */
-	public function get_email(): ?string {
-		return $this->email ?? null;
-	}
-
-	/**
-	 * Check if the email is from a disposable service
-	 *
-	 * @return bool
-	 */
-	public function is_disposable(): bool {
-		return ( $this->data[ $this->email ]['disposable'] ?? null ) === 'yes';
 	}
 
 	/**

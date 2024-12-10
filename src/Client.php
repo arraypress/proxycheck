@@ -14,6 +14,8 @@ declare( strict_types=1 );
 
 namespace ArrayPress\ProxyCheck;
 
+use ArrayPress\ProxyCheck\Response\IP;
+use ArrayPress\ProxyCheck\Response\DisposableEmail;
 use Exception;
 use WP_Error;
 
@@ -195,7 +197,7 @@ class Client {
 	 * @param string $ip      IP address to check
 	 * @param array  $options Additional options for the check
 	 *
-	 * @return Response|WP_Error Response object or WP_Error on failure
+	 * @return IP|WP_Error IP Response object or WP_Error on failure
 	 */
 	public function check_ip( string $ip, array $options = [] ) {
 		if ( ! $this->is_valid_ip( $ip ) ) {
@@ -210,7 +212,7 @@ class Client {
 		if ( $this->enable_cache ) {
 			$cached_data = get_transient( $cache_key );
 			if ( false !== $cached_data ) {
-				return new Response( $cached_data );
+				return new IP( $cached_data );
 			}
 		}
 
@@ -225,7 +227,7 @@ class Client {
 			set_transient( $cache_key, $response, $this->cache_expiration );
 		}
 
-		return new Response( $response );
+		return new IP( $response );
 	}
 
 	/**
@@ -290,7 +292,7 @@ class Client {
 	 *
 	 * @param string $email Email address to check
 	 *
-	 * @return DisposableEmailResponse|WP_Error Response object or WP_Error on failure
+	 * @return DisposableEmail|WP_Error Response object or WP_Error on failure
 	 */
 	public function check_email( string $email ) {
 		if ( ! $this->is_valid_email( $email ) ) {
@@ -305,7 +307,7 @@ class Client {
 		if ( $this->enable_cache ) {
 			$cached_data = get_transient( $cache_key );
 			if ( false !== $cached_data ) {
-				return new DisposableEmailResponse( $cached_data );
+				return new  ( $cached_data );
 			}
 		}
 
@@ -319,7 +321,7 @@ class Client {
 			set_transient( $cache_key, $response, $this->cache_expiration );
 		}
 
-		return new DisposableEmailResponse( $response );
+		return new DisposableEmail( $response );
 	}
 
 	/**
