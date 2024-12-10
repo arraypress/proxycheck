@@ -34,6 +34,14 @@ abstract class Base {
 	protected string $identifier;
 
 	/**
+	 * Block status constants
+	 */
+	protected const BLOCK_YES = 'yes';
+	protected const BLOCK_NO = 'no';
+	protected const BLOCK_NA = 'na';
+
+
+	/**
 	 * Initialize the response object
 	 *
 	 * @param array $data Raw response data from ProxyCheck API
@@ -107,6 +115,39 @@ abstract class Base {
 	 */
 	public function is_successful(): bool {
 		return ( $this->data['status'] ?? 'ok' ) === 'ok';
+	}
+
+	/**
+	 * Get block status
+	 *
+	 * @return bool True if IP/email should be blocked
+	 * @since 1.0.0
+	 *
+	 */
+	public function should_block(): bool {
+		return ( $this->data['block'] ?? self::BLOCK_NO ) === self::BLOCK_YES;
+	}
+
+	/**
+	 * Get reason for blocking if blocked
+	 *
+	 * @return string|null Block reason or null if not blocked
+	 * @since 1.0.0
+	 *
+	 */
+	public function get_block_reason(): ?string {
+		return $this->data['block_reason'] ?? null;
+	}
+
+	/**
+	 * Get detailed block information
+	 *
+	 * @return array|null Array of block details or null if not available
+	 * @since 1.0.0
+	 *
+	 */
+	public function get_block_details(): ?array {
+		return $this->data['block_details'] ?? null;
 	}
 
 }

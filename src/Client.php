@@ -51,16 +51,33 @@ class Client {
 	private const DEFAULT_PARAMS = [
 		'vpn'  => 1,    // Enable VPN detection
 		'asn'  => 1,    // Include ASN data
-		'node' => 0,    // Don't include node information
+		'node' => 1,    // Include node information
 		'time' => 0,    // Don't include query time
 		'inf'  => 1,    // Include basic proxy information
 		'risk' => 1,    // Include basic risk score
-		'port' => 0,    // Don't check port
-		'seen' => 0,    // Don't include last seen
+		'port' => 1,    // Check port
+		'seen' => 1,    // Include last seen
 		'days' => 7,    // Default history period
 		'tag'  => '',   // No default tag
 		'ver'  => 2,    // API version 2
+		'mask' => 0,    // Email address masking (0 = disabled, 1 = enabled)
 	];
+
+	/**
+	 * Array of country codes/names to block
+	 * If IP is from these countries, block will be set to 'yes'
+	 *
+	 * @var array
+	 */
+	private array $blocked_countries = [];
+
+	/**
+	 * Array of country codes/names to allow
+	 * These countries bypass proxy/VPN blocking
+	 *
+	 * @var array
+	 */
+	private array $allowed_countries = [];
 
 	/**
 	 * Maximum number of IPs per batch request for free users
@@ -188,6 +205,148 @@ class Client {
 		$this->api_key = $api_key;
 
 		return $this;
+	}
+
+	/**
+	 * Set countries to block
+	 * Accepts array of country names or ISO codes
+	 *
+	 * @param array $countries Array of country names or ISO codes
+	 *
+	 * @return self
+	 */
+	public function set_blocked_countries( array $countries ): self {
+		$this->blocked_countries = array_map( 'strtoupper', $countries );
+
+		return $this;
+	}
+
+	/**
+	 * Set countries to allow
+	 * These countries bypass proxy/VPN blocking
+	 *
+	 * @param array $countries Array of country names or ISO codes
+	 *
+	 * @return self
+	 */
+	public function set_allowed_countries( array $countries ): self {
+		$this->allowed_countries = array_map( 'strtoupper', $countries );
+
+		return $this;
+	}
+
+	/**
+	 * Apply country blocking rules to response
+	 * Adds block and block_reason fields based on country rules
+	 *
+	 * @param array  $response API response
+	 * @param string $address  IP address being checked
+	 *
+	 * @return array Modified response
+	 */
+	private function apply_country_rules( array $response, string $address ): array {
+		// Skip if no country info available
+		if ( ! isset( $response[ $address ]['country'] ) ) {
+			$response['block']        = 'na';
+			$response['block_reason'] = 'na';
+
+			return $response;
+		}
+
+		// Get country info
+		$country = strtoupper( $response[ $address ]['country'] );
+		$isocode = strtoupper( $response[ $address ]['isocode'] ?? '' );
+
+		// First check if country is blocked
+		if ( $response['block'] === 'no' && ! empty( $this->blocked_countries ) ) {
+			if ( in_array( $country, $this->blocked_countries ) ||
+			     in_array( $isocode, $this->blocked_countries ) ) {
+				$response['block']        = 'yes';
+				$response['block_reason'] = 'country';
+			}
+		}
+
+		// Then check if country is explicitly allowed
+		if ( $response['block'] === 'yes' && ! empty( $this->allowed_countries ) ) {
+			if ( in_array( $country, $this->allowed_countries ) ||
+			     in_array( $isocode, $this->allowed_countries ) ) {
+				$response['block']        = 'no';
+				$response['block_reason'] = 'na';
+			}
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Process email address for privacy
+	 * Masks email username if masking is enabled
+	 *
+	 * @param string $email Email address to process
+	 * @param bool   $mask  Whether to mask the email
+	 *
+	 * @return string Processed email address
+	 */
+	private function process_email( string $email, bool $mask = false ): string {
+		if ( $mask && strpos( $email, '@' ) !== false ) {
+			return 'anonymous@' . explode( '@', $email )[1];
+		}
+
+		return $email;
+	}
+
+	/**
+	 * Add block status to response
+	 * Determines if IP should be blocked based on proxy/VPN status,
+	 * operator details, and risk assessment
+	 *
+	 * @param array  $response API response
+	 * @param string $address  IP or email being checked
+	 *
+	 * @return array Modified response
+	 */
+	private function add_block_status( array $response, string $address ): array {
+		// Handle email disposable check
+		if ( strpos( $address, '@' ) !== false && isset( $response[ $address ]['disposable'] ) ) {
+			$response['block']        = $response[ $address ]['disposable'] === 'yes' ? 'yes' : 'no';
+			$response['block_reason'] = $response[ $address ]['disposable'] === 'yes' ? 'disposable' : 'na';
+
+			return $response;
+		}
+
+		// Initialize block status
+		$response['block']        = 'no';
+		$response['block_reason'] = 'na';
+
+		$ip_data = $response[ $address ];
+
+		// Check for proxy/VPN status with operator details
+		if ( isset( $ip_data['proxy'] ) && $ip_data['proxy'] === 'yes' ) {
+			$response['block']        = 'yes';
+			$response['block_reason'] = isset( $ip_data['type'] ) &&
+			                            $ip_data['type'] === 'VPN' ? 'vpn' : 'proxy';
+
+			// Add operator details if available
+			if ( isset( $ip_data['operator'] ) ) {
+				$response['block_details'] = [
+					'name'       => $ip_data['operator']['name'] ?? '',
+					'anonymity'  => $ip_data['operator']['anonymity'] ?? '',
+					'popularity' => $ip_data['operator']['popularity'] ?? ''
+				];
+			}
+		}
+
+		// Check risk score
+		if ( isset( $ip_data['risk'] ) && $ip_data['risk'] > 70 ) {
+			$response['block'] = 'yes';
+			// Only update block reason if not already blocked for proxy/VPN
+			if ( $response['block_reason'] === 'na' ) {
+				$response['block_reason'] = 'high_risk';
+			}
+		}
+
+		// Apply country rules
+		return $this->apply_country_rules( $response, $address );
 	}
 
 	/**
@@ -328,8 +487,6 @@ class Client {
 	/**
 	 * Check a single IP address
 	 *
-	 * Checks if an IP address is associated with a proxy or VPN.
-	 *
 	 * @param string $ip      IP address to check
 	 * @param array  $options Additional options for the check
 	 *
@@ -359,6 +516,9 @@ class Client {
 			return $response;
 		}
 
+		// Add block status and apply country rules
+		$response = $this->add_block_status( $response, $ip );
+
 		if ( $this->enable_cache ) {
 			set_transient( $cache_key, $response, $this->cache_expiration );
 		}
@@ -368,8 +528,6 @@ class Client {
 
 	/**
 	 * Check multiple IP addresses in a batch
-	 *
-	 * Checks multiple IP addresses for proxy/VPN usage in a single request.
 	 *
 	 * @param array $ips     Array of IP addresses to check
 	 * @param array $options Additional options for the check
@@ -409,6 +567,8 @@ class Client {
 							'query time' => $response['query time'] ?? null,
 							$ip          => $response[ $ip ]
 						];
+						// Add block status for each IP
+						$single_response = $this->add_block_status( $single_response, $ip );
 						$results[ $ip ]  = new IP( $single_response );
 					} catch ( Exception $e ) {
 						return new WP_Error(
@@ -428,13 +588,12 @@ class Client {
 	/**
 	 * Check if an email is disposable
 	 *
-	 * Checks if an email address is from a disposable email service.
-	 *
 	 * @param string $email Email address to check
+	 * @param bool   $mask  Whether to mask the email address
 	 *
 	 * @return DisposableEmail|WP_Error Response object or WP_Error on failure
 	 */
-	public function check_email( string $email ) {
+	public function check_email( string $email, bool $mask = false ) {
 		if ( ! $this->is_valid_email( $email ) ) {
 			return new WP_Error(
 				'invalid_email',
@@ -442,7 +601,9 @@ class Client {
 			);
 		}
 
-		$cache_key = $this->get_cache_key( $email );
+		// Process email masking
+		$processed_email = $this->process_email( $email, $mask );
+		$cache_key       = $this->get_cache_key( $processed_email );
 
 		if ( $this->enable_cache ) {
 			$cached_data = get_transient( $cache_key );
@@ -451,11 +612,14 @@ class Client {
 			}
 		}
 
-		$response = $this->make_get_request( $email );
+		$response = $this->make_get_request( $processed_email );
 
 		if ( is_wp_error( $response ) ) {
 			return $response;
 		}
+
+		// Add block status for email check
+		$response = $this->add_block_status( $response, $processed_email );
 
 		if ( $this->enable_cache ) {
 			set_transient( $cache_key, $response, $this->cache_expiration );

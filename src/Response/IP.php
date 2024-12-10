@@ -20,6 +20,11 @@ namespace ArrayPress\ProxyCheck\Response;
 class IP extends Base {
 
 	/**
+	 * Default risk threshold for high risk determination
+	 */
+	private const RISK_HIGH_THRESHOLD = 70;
+
+	/**
 	 * Get the IP address that was checked
 	 *
 	 * @return string|null
@@ -299,6 +304,48 @@ class IP extends Base {
 		$type = $this->get_type();
 
 		return $type !== null ? strtolower( $type ) === 'vpn' : null;
+	}
+
+	/**
+	 * Get operator details including anonymity, popularity and protocols
+	 *
+	 * @return array|null Array of operator details or null if not available
+	 */
+	public function get_operator_details(): ?array {
+		if ( ! isset( $this->data[ $this->identifier ]['operator'] ) ) {
+			return null;
+		}
+
+		$operator = $this->data[ $this->identifier ]['operator'];
+
+		return [
+			'name'       => $operator['name'] ?? null,
+			'url'        => $operator['url'] ?? null,
+			'anonymity'  => $operator['anonymity'] ?? null,
+			'popularity' => $operator['popularity'] ?? null,
+			'protocols'  => $operator['protocols'] ?? [],
+			'policies'   => $operator['policies'] ?? []
+		];
+	}
+
+	/**
+	 * Get VPN operator policies if available
+	 *
+	 * @return array|null Array of operator policies or null if not available
+	 */
+	public function get_operator_policies(): ?array {
+		return $this->data[ $this->identifier ]['operator']['policies'] ?? null;
+	}
+
+	/**
+	 * Check if this is a high risk IP
+	 *
+	 * @param int $threshold Risk score threshold (default: 70)
+	 *
+	 * @return bool True if risk score exceeds threshold
+	 */
+	public function is_high_risk( int $threshold = self::RISK_HIGH_THRESHOLD ): bool {
+		return ( $this->get_risk_score() ?? 0 ) > $threshold;
 	}
 
 }
