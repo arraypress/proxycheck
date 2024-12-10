@@ -4,10 +4,11 @@ declare( strict_types=1 );
 
 namespace ArrayPress\ProxyCheck\Traits;
 
+use ArrayPress\ProxyCheck\Response\ListEntries;
 use WP_Error;
 
 /**
- * Trait DashboardAPI
+ * Trait Dashboard
  *
  * Handles ProxyCheck.io Dashboard API functionality
  */
@@ -100,7 +101,7 @@ trait Dashboard {
 	 * @param string|null $list   List name (optional)
 	 * @param string|null $data   Data for add/remove/set actions (optional)
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function manage_list( string $action, ?string $list = null, ?string $data = null ) {
 		$valid_actions = [ 'print', 'add', 'remove', 'set', 'clear', 'erase', 'forcedl' ];
@@ -117,7 +118,9 @@ trait Dashboard {
 			$endpoint .= $list;
 		}
 
+		$params = [ 'json' => 1 ];
 		$args = [];
+
 		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ] ) ) {
 			$args = [
 				'method' => 'POST',
@@ -125,7 +128,13 @@ trait Dashboard {
 			];
 		}
 
-		return $this->make_dashboard_request( $endpoint, [], $args );
+		$response = $this->make_dashboard_request( $endpoint, $params, $args );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		return new ListEntries( $response );
 	}
 
 	/**
@@ -134,7 +143,7 @@ trait Dashboard {
 	 * @param string      $action Action to perform (list|add|remove|set|clear)
 	 * @param string|null $data   Data for add/remove/set actions (optional)
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function manage_cors( string $action, ?string $data = null ) {
 		$valid_actions = [ 'list', 'add', 'remove', 'set', 'clear' ];
@@ -147,7 +156,8 @@ trait Dashboard {
 		}
 
 		$endpoint = 'cors/' . $action . '/';
-		$args     = [];
+		$params = [ 'json' => 1 ];
+		$args = [];
 
 		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ] ) ) {
 			$args = [
@@ -156,7 +166,13 @@ trait Dashboard {
 			];
 		}
 
-		return $this->make_dashboard_request( $endpoint, [], $args );
+		$response = $this->make_dashboard_request( $endpoint, $params, $args );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		return new ListEntries( $response );
 	}
 
 	/**
@@ -164,7 +180,7 @@ trait Dashboard {
 	 *
 	 * @param string|array $ips Single IP or array of IPs to add
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function add_to_whitelist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
@@ -177,7 +193,7 @@ trait Dashboard {
 	 *
 	 * @param string|array $ips Single IP or array of IPs to remove
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function remove_from_whitelist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
@@ -190,7 +206,7 @@ trait Dashboard {
 	 *
 	 * @param string|array $ips Single IP or array of IPs to add
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function add_to_blocklist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
@@ -203,7 +219,7 @@ trait Dashboard {
 	 *
 	 * @param string|array $ips Single IP or array of IPs to remove
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function remove_from_blocklist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
@@ -214,7 +230,7 @@ trait Dashboard {
 	/**
 	 * Get whitelist entries
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function get_whitelist() {
 		return $this->manage_list( 'print', 'whitelist' );
@@ -223,7 +239,7 @@ trait Dashboard {
 	/**
 	 * Get blocklist entries
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function get_blocklist() {
 		return $this->manage_list( 'print', 'blocklist' );
@@ -232,7 +248,7 @@ trait Dashboard {
 	/**
 	 * Clear entire whitelist
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function clear_whitelist() {
 		return $this->manage_list( 'clear', 'whitelist' );
@@ -241,7 +257,7 @@ trait Dashboard {
 	/**
 	 * Clear entire blocklist
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function clear_blocklist() {
 		return $this->manage_list( 'clear', 'blocklist' );
@@ -252,7 +268,7 @@ trait Dashboard {
 	 *
 	 * @param string|array $ips IPs to set as the whitelist
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function set_whitelist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
@@ -265,7 +281,7 @@ trait Dashboard {
 	 *
 	 * @param string|array $ips IPs to set as the blocklist
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
 	public function set_blocklist( $ips ) {
 		$formatted_ips = $this->format_ip_list( $ips );
