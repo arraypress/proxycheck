@@ -16,10 +16,12 @@ namespace ArrayPress\ProxyCheck;
 
 use ArrayPress\ProxyCheck\Response\IP;
 use ArrayPress\ProxyCheck\Response\DisposableEmail;
+use ArrayPress\ProxyCheck\Traits\Dashboard;
 use Exception;
 use WP_Error;
 
 class Client {
+	use Dashboard;
 
 	/**
 	 * API key for ProxyCheck.io
@@ -36,12 +38,26 @@ class Client {
 	private const API_BASE = 'https://proxycheck.io/v2/';
 
 	/**
-	 * Maximum IPs per batch request
+	 * Maximum number of IPs per batch request for free users
+	 *
+	 * This constant represents the limit imposed by ProxyCheck.io
+	 * on the number of IP addresses that can be checked in a single
+	 * batch request for users on the free tier.
 	 *
 	 * @var int
 	 */
-	private const BATCH_MAX_SIZE = 100; // Free users
-	private const BATCH_MAX_SIZE_REGISTERED = 1000; // Registered users
+	private const BATCH_MAX_SIZE = 100;
+
+	/**
+	 * Maximum number of IPs per batch request for registered users
+	 *
+	 * This constant represents the limit imposed by ProxyCheck.io
+	 * on the number of IP addresses that can be checked in a single
+	 * batch request for users with a registered paid account.
+	 *
+	 * @var int
+	 */
+	private const BATCH_MAX_SIZE_REGISTERED = 1000;
 
 	/**
 	 * Whether to enable response caching
