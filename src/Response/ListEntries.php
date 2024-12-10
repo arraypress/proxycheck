@@ -114,4 +114,5 @@ class ListEntries {
 	public function is_successful(): bool {
 		return ( $this->data['status'] ?? '' ) === 'ok';
 	}
+
 }

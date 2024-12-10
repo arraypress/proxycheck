@@ -21,6 +21,8 @@ trait Dashboard {
 	 */
 	private string $dashboard_api_base = 'https://proxycheck.io/dashboard/';
 
+	/** Export Detections ****************************************************/
+
 	/**
 	 * Export recent positive detections
 	 *
@@ -30,14 +32,67 @@ trait Dashboard {
 	 * @return array|WP_Error Response array or WP_Error on failure
 	 */
 	public function export_detections( int $limit = 100, int $offset = 0 ) {
+		$cache_key = $this->get_cache_key( 'detections', [ 'limit' => $limit, 'offset' => $offset ] );
+
+		if ( $this->enable_cache ) {
+			$cached_data = get_transient( $cache_key );
+			if ( false !== $cached_data ) {
+				return $cached_data;
+			}
+		}
+
 		$params = [
 			'json'   => 1,
 			'limit'  => $limit,
 			'offset' => $offset
 		];
 
-		return $this->make_dashboard_request( 'export/detections/', $params );
+		$response = $this->make_dashboard_request( 'export/detections/', $params );
+
+		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
+			set_transient( $cache_key, $response, $this->cache_expiration );
+		}
+
+		return $response;
 	}
+
+	/**
+	 * Get formatted detections
+	 *
+	 * @param int $limit  Number of entries to return (default: 100)
+	 * @param int $offset Offset for pagination (default: 0)
+	 *
+	 * @return array Array of formatted detection entries
+	 */
+	public function get_formatted_detections( int $limit = 100, int $offset = 0 ): array {
+		$detections = $this->export_detections( $limit, $offset );
+
+		if ( is_wp_error( $detections ) ) {
+			return [];
+		}
+
+		$formatted = [];
+		foreach ( $detections as $key => $detection ) {
+			if ( ! is_numeric( $key ) ) {
+				continue;
+			}
+
+			$formatted[] = [
+				'time'     => $detection['time formatted'] ?? '',
+				'time_raw' => $detection['time raw'] ?? '',
+				'address'  => $detection['address'] ?? '',
+				'type'     => $detection['detection type'] ?? '',
+				'node'     => $detection['answering node'] ?? '',
+				'tag'      => $detection['tag'] ?? '',
+				'country'  => $detection['country'] ?? '',
+				'port'     => $detection['port'] ?? null
+			];
+		}
+
+		return $formatted;
+	}
+
+	/** Export Tags ****************************************************/
 
 	/**
 	 * Export tags data
@@ -53,6 +108,15 @@ trait Dashboard {
 	 * @return array|WP_Error Response array or WP_Error on failure
 	 */
 	public function export_tags( array $options = [] ) {
+		$cache_key = $this->get_cache_key( 'tags', $options );
+
+		if ( $this->enable_cache ) {
+			$cached_data = get_transient( $cache_key );
+			if ( false !== $cached_data ) {
+				return $cached_data;
+			}
+		}
+
 		$defaults = [
 			'limit'     => 100,
 			'offset'    => 0,
@@ -71,7 +135,160 @@ trait Dashboard {
 			$params['addresses'] = (int) $params['addresses'];
 		}
 
-		return $this->make_dashboard_request( 'export/tags/', $params );
+		$response = $this->make_dashboard_request( 'export/tags/', $params );
+
+		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
+			set_transient( $cache_key, $response, $this->cache_expiration );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Get formatted tags data
+	 *
+	 * @param array $options Options for the export
+	 *
+	 * @return array Formatted tags data
+	 */
+	public function get_formatted_tags( array $options = [] ): array {
+		$tags = $this->export_tags( $options );
+
+		if ( is_wp_error( $tags ) ) {
+			return [];
+		}
+
+		return array_map( function ( $data ) {
+			return [
+				'total'     => $data['types']['total'] ?? 0,
+				'proxy'     => $data['types']['proxy'] ?? 0,
+				'vpn'       => $data['types']['vpn'] ?? 0,
+				'rule'      => $data['types']['rule'] ?? 0,
+				'addresses' => $data['addresses'] ?? []
+			];
+		}, $tags );
+	}
+
+	/** Detections (History) ****************************************************/
+
+	/**
+	 * Get token usage information from the API
+	 *
+	 * @return array|WP_Error Token usage info or WP_Error on failure
+	 */
+	public function get_tokens() {
+		$cache_key = $this->get_cache_key( 'tokens' );
+
+		if ( $this->enable_cache ) {
+			$cached_data = get_transient( $cache_key );
+			if ( false !== $cached_data ) {
+				return $cached_data;
+			}
+		}
+
+		$response = $this->make_dashboard_request( 'export/usage/' );
+
+		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
+			set_transient( $cache_key, $response, $this->cache_expiration );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Get formatted token information
+	 *
+	 * @return array Formatted token information
+	 */
+	public function get_formatted_tokens(): array {
+		$tokens = $this->get_tokens();
+
+		if ( is_wp_error( $tokens ) ) {
+			return [
+				'used'            => 0,
+				'limit'           => 0,
+				'total'           => 0,
+				'plan'            => 'Unknown',
+				'burst_available' => 0,
+				'burst_limit'     => 0,
+				'percentage'      => 0.0,
+				'remaining'       => 0
+			];
+		}
+
+		$used  = (int) ( $tokens['Queries Today'] ?? 0 );
+		$limit = (int) ( $tokens['Daily Limit'] ?? 0 );
+
+		return [
+			'used'            => $used,
+			'limit'           => $limit,
+			'total'           => (int) ( $tokens['Queries Total'] ?? 0 ),
+			'plan'            => $tokens['Plan Tier'] ?? 'Unknown',
+			'burst_available' => (int) ( $tokens['Burst Tokens Available'] ?? 0 ),
+			'burst_limit'     => (int) ( $tokens['Burst Token Allowance'] ?? 0 ),
+			'percentage'      => $limit > 0 ? round( ( $used / $limit ) * 100, 2 ) : 0.0,
+			'remaining'       => max( 0, $limit - $used )
+		];
+	}
+
+	/**
+	 * Get the total number of used tokens today
+	 *
+	 * @return int Number of used tokens
+	 */
+	public function get_used_tokens(): int {
+		$tokens = $this->get_tokens();
+
+		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Queries Today'] ?? 0 );
+	}
+
+	/**
+	 * Get the daily token limit
+	 *
+	 * @return int Daily token limit
+	 */
+	public function get_token_limit(): int {
+		$tokens = $this->get_tokens();
+
+		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Daily Limit'] ?? 0 );
+	}
+
+	/**
+	 * Get remaining available tokens
+	 *
+	 * @return int Number of remaining tokens
+	 */
+	public function get_remaining_tokens(): int {
+		$tokens = $this->get_tokens();
+
+		if ( is_wp_error( $tokens ) ) {
+			return 0;
+		}
+
+		$used  = (int) ( $tokens['Queries Today'] ?? 0 );
+		$limit = (int) ( $tokens['Daily Limit'] ?? 0 );
+
+		return max( 0, $limit - $used );
+	}
+
+	/**
+	 * Get number of available burst tokens
+	 *
+	 * @return int Number of available burst tokens
+	 */
+	public function get_burst_tokens(): int {
+		$tokens = $this->get_tokens();
+
+		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Burst Tokens Available'] ?? 0 );
+	}
+
+	/**
+	 * Check if token limit is exceeded
+	 *
+	 * @return bool True if limit exceeded
+	 */
+	public function is_token_limit_exceeded(): bool {
+		return $this->get_remaining_tokens() <= 0;
 	}
 
 	/**
@@ -114,7 +331,7 @@ trait Dashboard {
 		}
 
 		// Adjust endpoint to match their format
-		$endpoint = $list . '/list/';  // e.g., 'blacklist/list/' instead of 'lists/print/blacklist'
+		$endpoint = $list . '/list/';
 
 		if ( $action !== 'print' ) {
 			$endpoint = $list . '/' . $action . '/';  // e.g., 'blacklist/add/'
