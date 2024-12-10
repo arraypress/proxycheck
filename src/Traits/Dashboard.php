@@ -292,23 +292,30 @@ trait Dashboard {
 	}
 
 	/**
-	 * Export account usage statistics
-	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
-	 */
-	public function export_usage() {
-		return $this->make_dashboard_request( 'export/usage/' );
-	}
-
-	/**
 	 * Export query statistics for the past 30 days
+	 *
+	 * Retrieves statistical data about API queries made in the last 30 days.
 	 *
 	 * @return array|WP_Error Response array or WP_Error on failure
 	 */
 	public function export_queries() {
-		$params = [ 'json' => 1 ];
+		$cache_key = $this->get_cache_key( 'queries_30day' );
 
-		return $this->make_dashboard_request( 'export/queries/', $params );
+		if ( $this->enable_cache ) {
+			$cached_data = get_transient( $cache_key );
+			if ( false !== $cached_data ) {
+				return $cached_data;
+			}
+		}
+
+		$params   = [ 'json' => 1 ];
+		$response = $this->make_dashboard_request( 'export/queries/', $params );
+
+		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
+			set_transient( $cache_key, $response, $this->cache_expiration );
+		}
+
+		return $response;
 	}
 
 	/**
