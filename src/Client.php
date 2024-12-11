@@ -170,6 +170,17 @@ class Client {
 	}
 
 	/**
+	 * Get the API key
+	 *
+	 * Returns the current API key used for authentication with ProxyCheck.io.
+	 *
+	 * @return string The current API key
+	 */
+	public function get_api_key(): string {
+		return $this->api_key;
+	}
+
+	/**
 	 * Enable or disable response caching
 	 *
 	 * Controls whether API responses should be cached to reduce API calls.
@@ -182,6 +193,17 @@ class Client {
 		$this->enable_cache = $enable;
 
 		return $this;
+	}
+
+	/**
+	 * Get the cache enabled status
+	 *
+	 * Returns whether response caching is currently enabled.
+	 *
+	 * @return bool True if caching is enabled, false otherwise
+	 */
+	public function get_cache_enabled(): bool {
+		return $this->enable_cache;
 	}
 
 	/**
@@ -206,6 +228,17 @@ class Client {
 	}
 
 	/**
+	 * Get the cache expiration time
+	 *
+	 * Returns the current cache expiration time in seconds.
+	 *
+	 * @return int Cache expiration time in seconds
+	 */
+	public function get_cache_expiration(): int {
+		return $this->cache_expiration;
+	}
+
+	/**
 	 * Set cache key prefix
 	 *
 	 * Sets the prefix used for cache keys in the WordPress options table.
@@ -221,47 +254,80 @@ class Client {
 	}
 
 	/**
-	 * Set the site name as the request tag
+	 * Set VPN detection mode
 	 *
-	 * Uses the WordPress site name as the tag for identifying requests
-	 * in the ProxyCheck.io dashboard.
+	 * Controls the VPN detection mode for IP checks:
+	 * - 0: No VPN check, only proxy check
+	 * - 1: VPN and proxy check (proxy overrides VPN)
+	 * - 2: Only VPN check, no proxy check
+	 * - 3: Both VPN and proxy check (separate results)
 	 *
-	 * @return self
+	 * @param int $mode VPN detection mode (0-3)
+	 *
+	 * @return self|WP_Error Returns self on success, WP_Error on failure
 	 */
-	public function set_site_name(): self {
-		$this->current_params['tag'] = sanitize_text_field( get_bloginfo( 'name' ) );
+	public function set_vpn( int $mode ) {
+		if ( $mode < 0 || $mode > 3 ) {
+			return new WP_Error(
+				'invalid_vpn_mode',
+				__( 'VPN mode must be between 0 and 3', 'arraypress' )
+			);
+		}
+		$this->current_params['vpn'] = $mode;
 
 		return $this;
 	}
 
 	/**
-	 * Set VPN detection parameter
+	 * Get VPN detection mode
 	 *
-	 * @param bool $enabled Whether to enable VPN detection
+	 * Returns the current VPN detection mode:
+	 * - 0: No VPN check
+	 * - 1: VPN and proxy check (proxy overrides)
+	 * - 2: Only VPN check
+	 * - 3: Both checks (separate results)
+	 *
+	 * @return int Current VPN detection mode
+	 */
+	public function get_vpn(): int {
+		return (int) $this->current_params['vpn'];
+	}
+
+	/**
+	 * Set ASN lookup
+	 *
+	 * Controls whether to include ASN data in results.
+	 * When enabled, includes provider name, ASN, range,
+	 * hostname, location data, and currency information.
+	 *
+	 * @param bool $enable Whether to enable ASN lookups
 	 *
 	 * @return self
 	 */
-	public function set_vpn( bool $enabled ): self {
-		$this->current_params['vpn'] = $enabled ? 1 : 0;
+	public function set_asn( bool $enable ): self {
+		$this->current_params['asn'] = $enable ? 1 : 0;
 
 		return $this;
 	}
 
 	/**
-	 * Set ASN data parameter
+	 * Get ASN lookup setting
 	 *
-	 * @param bool $enabled Whether to include ASN data
+	 * Returns whether ASN data inclusion is enabled. When enabled,
+	 * provides provider details, network info, and location data.
 	 *
-	 * @return self
+	 * @return bool True if ASN lookups are enabled
 	 */
-	public function set_asn( bool $enabled ): self {
-		$this->current_params['asn'] = $enabled ? 1 : 0;
-
-		return $this;
+	public function get_asn(): bool {
+		return (bool) $this->current_params['asn'];
 	}
 
 	/**
 	 * Set node information parameter
+	 *
+	 * Controls whether to include which node within the cluster
+	 * answered your API call. Primarily used for diagnostics
+	 * with support staff.
 	 *
 	 * @param bool $enabled Whether to include node information
 	 *
@@ -274,7 +340,22 @@ class Client {
 	}
 
 	/**
+	 * Get node information setting
+	 *
+	 * Returns whether node information is included in responses.
+	 * This shows which cluster node answered the API call.
+	 *
+	 * @return bool True if node information is enabled
+	 */
+	public function get_node(): bool {
+		return (bool) $this->current_params['node'];
+	}
+
+	/**
 	 * Set query time parameter
+	 *
+	 * Controls whether to display how long the query took
+	 * to be answered by the API, excluding network overhead.
 	 *
 	 * @param bool $enabled Whether to include query time
 	 *
@@ -287,7 +368,23 @@ class Client {
 	}
 
 	/**
+	 * Get query time setting
+	 *
+	 * Returns whether query time information is included
+	 * in the API response. Shows query processing time
+	 * excluding network overhead.
+	 *
+	 * @return bool True if query time is enabled
+	 */
+	public function get_time(): bool {
+		return (bool) $this->current_params['time'];
+	}
+
+	/**
 	 * Set basic proxy information parameter
+	 *
+	 * Controls whether to include basic proxy information
+	 * in the API response.
 	 *
 	 * @param bool $enabled Whether to include basic proxy information
 	 *
@@ -300,59 +397,150 @@ class Client {
 	}
 
 	/**
-	 * Set risk score parameter
+	 * Get basic proxy information setting
 	 *
-	 * @param bool $enabled Whether to include risk score
+	 * Returns whether basic proxy information is included
+	 * in the API response.
 	 *
-	 * @return self
+	 * @return bool True if basic proxy information is enabled
 	 */
-	public function set_risk( bool $enabled ): self {
-		$this->current_params['risk'] = $enabled ? 1 : 0;
+	public function get_inf(): bool {
+		return (bool) $this->current_params['inf'];
+	}
+
+	/**
+	 * Set risk assessment level
+	 *
+	 * Sets the risk assessment mode:
+	 * - 0: Disabled
+	 * - 1: Basic risk score (0-100)
+	 * - 2: Detailed risk score with attack history
+	 *
+	 * @param int $level Risk assessment level (0-2)
+	 *
+	 * @return self|WP_Error Returns self on success, WP_Error on failure
+	 */
+	public function set_risk( int $level ) {
+		if ( $level < 0 || $level > 2 ) {
+			return new WP_Error(
+				'invalid_risk_level',
+				__( 'Risk level must be between 0 and 2', 'arraypress' )
+			);
+		}
+		$this->current_params['risk'] = $level;
 
 		return $this;
 	}
 
 	/**
-	 * Set port check parameter
+	 * Get risk assessment level
 	 *
-	 * @param bool $enabled Whether to check port
+	 * Returns the current risk assessment level:
+	 * - 0: Disabled
+	 * - 1: Basic risk score
+	 * - 2: Detailed risk score
+	 *
+	 * @return int Current risk assessment level
+	 */
+	public function get_risk(): int {
+		return (int) $this->current_params['risk'];
+	}
+
+	/**
+	 * Set port checking
+	 *
+	 * Controls whether to include the port number
+	 * where proxy server was detected.
+	 *
+	 * @param bool $enable Whether to enable port checking
 	 *
 	 * @return self
 	 */
-	public function set_port( bool $enabled ): self {
-		$this->current_params['port'] = $enabled ? 1 : 0;
+	public function set_port( bool $enable ): self {
+		$this->current_params['port'] = $enable ? 1 : 0;
 
 		return $this;
 	}
 
 	/**
-	 * Set last seen parameter
+	 * Get port checking setting
 	 *
-	 * @param bool $enabled Whether to include last seen information
+	 * Returns whether port checking is enabled. When enabled,
+	 * includes the port number where proxy server was detected.
+	 *
+	 * @return bool True if port checking is enabled
+	 */
+	public function get_port(): bool {
+		return (bool) $this->current_params['port'];
+	}
+
+	/**
+	 * Set time seen data collection
+	 *
+	 * Controls whether to include the most recent time
+	 * the IP was seen operating as a proxy server.
+	 *
+	 * @param bool $enable Whether to enable time seen data
 	 *
 	 * @return self
 	 */
-	public function set_seen( bool $enabled ): self {
-		$this->current_params['seen'] = $enabled ? 1 : 0;
+	public function set_seen( bool $enable ): self {
+		$this->current_params['seen'] = $enable ? 1 : 0;
 
 		return $this;
 	}
 
 	/**
-	 * Set history period in days
+	 * Get time seen data setting
 	 *
-	 * @param int $days Number of days for history
+	 * Returns whether last seen data collection is enabled.
+	 * When enabled, shows when IP was last seen as proxy.
 	 *
-	 * @return self
+	 * @return bool True if time seen data is enabled
 	 */
-	public function set_days( int $days ): self {
+	public function get_seen(): bool {
+		return (bool) $this->current_params['seen'];
+	}
+
+	/**
+	 * Set history period
+	 *
+	 * Sets the number of days to include in proxy results.
+	 * Default is 7 days if not specified.
+	 *
+	 * @param int $days Number of days for historical data
+	 *
+	 * @return self|WP_Error Returns self on success, WP_Error on failure
+	 */
+	public function set_days( int $days ) {
+		if ( $days < 1 ) {
+			return new WP_Error(
+				'invalid_days',
+				__( 'Days must be greater than 0', 'arraypress' )
+			);
+		}
 		$this->current_params['days'] = $days;
 
 		return $this;
 	}
 
 	/**
+	 * Get history period setting
+	 *
+	 * Returns the number of days included in proxy results.
+	 * Default is 7 days if not previously set.
+	 *
+	 * @return int Number of days for historical data
+	 */
+	public function get_days(): int {
+		return (int) $this->current_params['days'];
+	}
+
+	/**
 	 * Set request tag
+	 *
+	 * Sets a custom tag to identify the request in the
+	 * ProxyCheck.io dashboard. Can be sent via POST method.
 	 *
 	 * @param string $tag Tag to identify the request
 	 *
@@ -362,6 +550,18 @@ class Client {
 		$this->current_params['tag'] = $tag;
 
 		return $this;
+	}
+
+	/**
+	 * Get the request tag value
+	 *
+	 * Returns the current tag used for identifying requests
+	 * in the ProxyCheck.io dashboard.
+	 *
+	 * @return string Current request tag
+	 */
+	public function get_tag(): string {
+		return $this->current_params['tag'] ?? '';
 	}
 
 	/**
@@ -843,6 +1043,20 @@ class Client {
 	 */
 	private function is_valid_ip( string $ip ): bool {
 		return filter_var( $ip, FILTER_VALIDATE_IP ) !== false;
+	}
+
+	/**
+	 * Set the site name as the request tag
+	 *
+	 * Uses the WordPress site name as the tag for identifying requests
+	 * in the ProxyCheck.io dashboard.
+	 *
+	 * @return self
+	 */
+	public function set_site_name(): self {
+		$this->current_params['tag'] = sanitize_text_field( get_bloginfo( 'name' ) );
+
+		return $this;
 	}
 
 }
