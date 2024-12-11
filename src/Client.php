@@ -49,18 +49,19 @@ class Client {
 	 * @var array
 	 */
 	private const DEFAULT_PARAMS = [
-		'vpn'  => 0,    // VPN detection disabled by default
-		'asn'  => 0,    // ASN data disabled by default
-		'node' => 0,    // Node information disabled by default
-		'time' => 0,    // Query time disabled by default
-		'inf'  => 0,    // Basic proxy information disabled by default
-		'risk' => 0,    // Risk score disabled by default
-		'port' => 0,    // Port check disabled by default
-		'seen' => 0,    // Last seen disabled by default
-		'days' => 7,    // Default history period
-		'tag'  => '',   // No default tag
-		'ver'  => 2,    // API version 2
-		'mask' => 0,    // Email address masking disabled by default
+		'vpn'           => 0,    // VPN detection disabled by default
+		'asn'           => 0,    // ASN data disabled by default
+		'node'          => 0,    // Node information disabled by default
+		'time'          => 0,    // Query time disabled by default
+		'inf'           => 0,    // Basic proxy information disabled by default
+		'risk'          => 0,    // Risk score disabled by default
+		'port'          => 0,    // Port check disabled by default
+		'seen'          => 0,    // Last seen disabled by default
+		'days'          => 7,    // Default history period
+		'tag'           => '',   // No default tag
+		'ver'           => 2,    // API version 2
+		'mask'          => 0,    // Email address masking disabled by default
+		'query_tagging' => 0,    // Query tagging disabled by default
 	];
 
 	/**
@@ -149,9 +150,6 @@ class Client {
 		$this->cache_expiration = $cache_expiration;
 		$this->cache_prefix     = $cache_prefix;
 		$this->current_params   = self::DEFAULT_PARAMS;
-
-		// Set default tag as site name
-		$this->set_site_name();
 	}
 
 	/**
@@ -537,6 +535,38 @@ class Client {
 	}
 
 	/**
+	 * Set query tagging
+	 *
+	 * Controls whether to automatically tag queries with site information
+	 * when no custom tag is set.
+	 *
+	 * @param bool $enable Whether to enable query tagging
+	 *
+	 * @return self
+	 */
+	public function set_query_tagging( bool $enable ): self {
+		$this->current_params['query_tagging'] = $enable;
+
+		// If enabled and no custom tag, use site name
+		if ( $enable && empty( $this->current_params['tag'] ) ) {
+			$this->current_params['tag'] = sanitize_text_field( get_bloginfo( 'name' ) );
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Get query tagging setting
+	 *
+	 * Returns whether automatic query tagging is enabled.
+	 *
+	 * @return bool True if query tagging is enabled
+	 */
+	public function get_query_tagging(): bool {
+		return (bool) ( $this->current_params['query_tagging'] ?? false );
+	}
+
+	/**
 	 * Set request tag
 	 *
 	 * Sets a custom tag to identify the request in the
@@ -574,6 +604,11 @@ class Client {
 	 */
 	public function set_blocked_countries( array $countries ): self {
 		$this->blocked_countries = array_map( 'strtoupper', $countries );
+
+		// Auto-enable ASN data when using country blocking
+		if ( ! empty( $countries ) ) {
+			$this->set_asn( true );
+		}
 
 		return $this;
 	}
@@ -1043,20 +1078,6 @@ class Client {
 	 */
 	private function is_valid_ip( string $ip ): bool {
 		return filter_var( $ip, FILTER_VALIDATE_IP ) !== false;
-	}
-
-	/**
-	 * Set the site name as the request tag
-	 *
-	 * Uses the WordPress site name as the tag for identifying requests
-	 * in the ProxyCheck.io dashboard.
-	 *
-	 * @return self
-	 */
-	public function set_site_name(): self {
-		$this->current_params['tag'] = sanitize_text_field( get_bloginfo( 'name' ) );
-
-		return $this;
 	}
 
 }
