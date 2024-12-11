@@ -462,35 +462,35 @@ trait Dashboard {
 	/** Blacklist Management *******************************************************/
 
 	/**
-	 * Get blocklist entries
+	 * Get blacklist entries
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
-	public function get_blocklist() {
+	public function get_blacklist() {
 		return $this->manage_list( 'print', 'blacklist' );
 	}
 
 	/**
-	 * Set blocklist entries (replaces existing entries)
+	 * Set blacklist entries (replaces existing entries)
 	 *
 	 * @param string|array $ips IPs to set as the blocklist
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
-	public function set_blocklist( $ips ) {
+	public function set_blacklist( $ips ) {
 		$formatted_ips = $this->format_list( $ips );
 
 		return $this->manage_list( 'set', 'blacklist', $formatted_ips );
 	}
 
 	/**
-	 * Add IP address to blocklist
+	 * Add IP address to blacklist
 	 *
 	 * @param string|array $ips Single IP or array of IPs to add
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
-	public function add_to_blocklist( $ips ) {
+	public function add_to_blacklist( $ips ) {
 		$formatted_ips = $this->format_list( $ips );
 
 		return $this->manage_list( 'add', 'blacklist', $formatted_ips );
@@ -503,18 +503,18 @@ trait Dashboard {
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
-	public function remove_from_blocklist( $ips ) {
+	public function remove_from_blacklist( $ips ) {
 		$formatted_ips = $this->format_list( $ips );
 
 		return $this->manage_list( 'remove', 'blacklist', $formatted_ips );
 	}
 
 	/**
-	 * Clear entire blocklist
+	 * Clear entire blacklist
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
-	public function clear_blocklist() {
+	public function clear_blacklist() {
 		return $this->manage_list( 'clear', 'blacklist' );
 	}
 
