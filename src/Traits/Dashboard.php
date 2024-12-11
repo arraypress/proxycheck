@@ -44,15 +44,16 @@ trait Dashboard {
 	/**
 	 * Export recent positive detections
 	 *
-	 * @param int $limit  Number of entries to return (default: 100)
-	 * @param int $offset Offset for pagination (default: 0)
+	 * @param int  $limit       Number of entries to return (default: 100)
+	 * @param int  $offset      Offset for pagination (default: 0)
+	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
 	 * @return array|WP_Error Response array or WP_Error on failure
 	 */
-	public function export_detections( int $limit = 100, int $offset = 0 ) {
+	public function export_detections( int $limit = 100, int $offset = 0, bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'detections', [ 'limit' => $limit, 'offset' => $offset ] );
 
-		if ( $this->enable_cache ) {
+		if ( $this->enable_cache && ! $force_check ) {
 			$cached_data = get_transient( $cache_key );
 			if ( false !== $cached_data ) {
 				return $cached_data;
@@ -77,13 +78,14 @@ trait Dashboard {
 	/**
 	 * Get formatted detections
 	 *
-	 * @param int $limit  Number of entries to return (default: 100)
-	 * @param int $offset Offset for pagination (default: 0)
+	 * @param int  $limit       Number of entries to return (default: 100)
+	 * @param int  $offset      Offset for pagination (default: 0)
+	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
 	 * @return array Array of formatted detection entries
 	 */
-	public function get_formatted_detections( int $limit = 100, int $offset = 0 ): array {
-		$detections = $this->export_detections( $limit, $offset );
+	public function get_formatted_detections( int $limit = 100, int $offset = 0, bool $force_check = false ): array {
+		$detections = $this->export_detections( $limit, $offset, $force_check );
 
 		if ( is_wp_error( $detections ) ) {
 			return [];
@@ -115,20 +117,21 @@ trait Dashboard {
 	/**
 	 * Export tags data
 	 *
-	 * @param array $options Options for the export
-	 *                       - limit: int (default: 100)
-	 *                       - offset: int (default: 0)
-	 *                       - addresses: bool (default: false)
-	 *                       - days: int|null
-	 *                       - start: int|null (unix timestamp)
-	 *                       - end: int|null (unix timestamp)
+	 * @param array $options     Options for the export
+	 *                           - limit: int (default: 100)
+	 *                           - offset: int (default: 0)
+	 *                           - addresses: bool (default: false)
+	 *                           - days: int|null
+	 *                           - start: int|null (unix timestamp)
+	 *                           - end: int|null (unix timestamp)
+	 * @param bool  $force_check Force bypass cache if true (default: false)
 	 *
 	 * @return array|WP_Error Response array or WP_Error on failure
 	 */
-	public function export_tags( array $options = [] ) {
+	public function export_tags( array $options = [], bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'tags', $options );
 
-		if ( $this->enable_cache ) {
+		if ( $this->enable_cache && ! $force_check ) {
 			$cached_data = get_transient( $cache_key );
 			if ( false !== $cached_data ) {
 				return $cached_data;
@@ -165,12 +168,13 @@ trait Dashboard {
 	/**
 	 * Get formatted tags data
 	 *
-	 * @param array $options Options for the export
+	 * @param array $options     Options for the export
+	 * @param bool  $force_check Force bypass cache if true (default: false)
 	 *
 	 * @return array Formatted tags data
 	 */
-	public function get_formatted_tags( array $options = [] ): array {
-		$tags = $this->export_tags( $options );
+	public function get_formatted_tags( array $options = [], bool $force_check = false ): array {
+		$tags = $this->export_tags( $options, $force_check );
 
 		if ( is_wp_error( $tags ) ) {
 			return [];
@@ -194,12 +198,14 @@ trait Dashboard {
 	 *
 	 * Retrieves statistical data about API queries made in the last 30 days.
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return array|WP_Error Response array or WP_Error on failure
 	 */
-	public function export_queries() {
+	public function export_queries( bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'queries_30day' );
 
-		if ( $this->enable_cache ) {
+		if ( $this->enable_cache && ! $force_check ) {
 			$cached_data = get_transient( $cache_key );
 			if ( false !== $cached_data ) {
 				return $cached_data;
@@ -222,15 +228,16 @@ trait Dashboard {
 	 * Returns formatted statistical data about API queries for the specified period,
 	 * including daily totals and detection types.
 	 *
-	 * @param int $days Number of days to retrieve (default: 30, max: 30)
+	 * @param int  $days        Number of days to retrieve (default: 30, max: 30)
+	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
 	 * @return array Formatted query statistics
 	 */
-	public function get_formatted_queries( int $days = 30 ): array {
+	public function get_formatted_queries( int $days = 30, bool $force_check = false ): array {
 		// Ensure days is within valid range
 		$days = min( max( $days, 1 ), 30 );
 
-		$queries = $this->export_queries();
+		$queries = $this->export_queries( $force_check );
 
 		if ( is_wp_error( $queries ) ) {
 			return [
@@ -321,12 +328,14 @@ trait Dashboard {
 	/**
 	 * Get token usage information from the API
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return array|WP_Error Token usage info or WP_Error on failure
 	 */
-	public function get_usage() {
+	public function get_usage( bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'usage' );
 
-		if ( $this->enable_cache ) {
+		if ( $this->enable_cache && ! $force_check ) {
 			$cached_data = get_transient( $cache_key );
 			if ( false !== $cached_data ) {
 				return $cached_data;
@@ -345,10 +354,12 @@ trait Dashboard {
 	/**
 	 * Get formatted token usage information
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return array Formatted usage information
 	 */
-	public function get_formatted_usage(): array {
-		$usage = $this->get_usage();
+	public function get_formatted_usage( bool $force_check = false ): array {
+		$usage = $this->get_usage( $force_check );
 
 		if ( is_wp_error( $usage ) ) {
 			return [
@@ -381,10 +392,12 @@ trait Dashboard {
 	/**
 	 * Get the total number of used tokens today
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return int Number of used tokens
 	 */
-	public function get_used_tokens(): int {
-		$tokens = $this->get_usage();
+	public function get_used_tokens( bool $force_check = false ): int {
+		$tokens = $this->get_usage( $force_check );
 
 		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Queries Today'] ?? 0 );
 	}
@@ -392,10 +405,12 @@ trait Dashboard {
 	/**
 	 * Get the daily token limit
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return int Daily token limit
 	 */
-	public function get_token_limit(): int {
-		$tokens = $this->get_usage();
+	public function get_token_limit( bool $force_check = false ): int {
+		$tokens = $this->get_usage( $force_check );
 
 		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Daily Limit'] ?? 0 );
 	}
@@ -403,10 +418,12 @@ trait Dashboard {
 	/**
 	 * Get remaining available tokens
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return int Number of remaining tokens
 	 */
-	public function get_remaining_tokens(): int {
-		$tokens = $this->get_usage();
+	public function get_remaining_tokens( bool $force_check = false ): int {
+		$tokens = $this->get_usage( $force_check );
 
 		if ( is_wp_error( $tokens ) ) {
 			return 0;
@@ -421,10 +438,12 @@ trait Dashboard {
 	/**
 	 * Get number of available burst tokens
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return int Number of available burst tokens
 	 */
-	public function get_burst_tokens(): int {
-		$tokens = $this->get_usage();
+	public function get_burst_tokens( bool $force_check = false ): int {
+		$tokens = $this->get_usage( $force_check );
 
 		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Burst Tokens Available'] ?? 0 );
 	}
@@ -432,10 +451,12 @@ trait Dashboard {
 	/**
 	 * Check if token limit is exceeded
 	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
 	 * @return bool True if limit exceeded
 	 */
-	public function is_token_limit_exceeded(): bool {
-		return $this->get_remaining_tokens() <= 0;
+	public function is_token_limit_exceeded( bool $force_check = false ): bool {
+		return $this->get_remaining_tokens( $force_check ) <= 0;
 	}
 
 	/** Blacklist Management *******************************************************/

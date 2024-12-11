@@ -149,6 +149,9 @@ class Client {
 		$this->cache_expiration = $cache_expiration;
 		$this->cache_prefix     = $cache_prefix;
 		$this->current_params   = self::DEFAULT_PARAMS;
+
+		// Set default tag as site name
+		$this->set_site_name();
 	}
 
 	/**
@@ -188,12 +191,14 @@ class Client {
 	 *
 	 * @param int $seconds Cache expiration time in seconds
 	 *
-	 * @return self
-	 * @throws \InvalidArgumentException If seconds is negative
+	 * @return self|WP_Error Returns self on success, WP_Error on failure
 	 */
-	public function set_cache_expiration( int $seconds ): self {
+	public function set_cache_expiration( int $seconds ) {
 		if ( $seconds < 0 ) {
-			throw new \InvalidArgumentException( 'Cache expiration time cannot be negative' );
+			return new WP_Error(
+				'invalid_expiration',
+				__( 'Cache expiration time cannot be negative', 'arraypress' )
+			);
 		}
 		$this->cache_expiration = $seconds;
 
@@ -215,6 +220,19 @@ class Client {
 		return $this;
 	}
 
+	/**
+	 * Set the site name as the request tag
+	 *
+	 * Uses the WordPress site name as the tag for identifying requests
+	 * in the ProxyCheck.io dashboard.
+	 *
+	 * @return self
+	 */
+	public function set_site_name(): self {
+		$this->current_params['tag'] = sanitize_text_field( get_bloginfo( 'name' ) );
+
+		return $this;
+	}
 
 	/**
 	 * Set VPN detection parameter
@@ -733,7 +751,7 @@ class Client {
 	 * @return DisposableEmail|WP_Error Response object or WP_Error on failure
 	 */
 	public function check_email( string $email, bool $mask = false ) {
-		if ( ! $this->is_valid_email( $email ) ) {
+		if ( ! is_email( $email ) ) {
 			return new WP_Error(
 				'invalid_email',
 				sprintf( __( 'Invalid email address: %s', 'arraypress' ), $email )
@@ -825,19 +843,6 @@ class Client {
 	 */
 	private function is_valid_ip( string $ip ): bool {
 		return filter_var( $ip, FILTER_VALIDATE_IP ) !== false;
-	}
-
-	/**
-	 * Validate an email address
-	 *
-	 * Checks if a string is a valid email address.
-	 *
-	 * @param string $email Email address to validate
-	 *
-	 * @return bool True if valid, false otherwise
-	 */
-	private function is_valid_email( string $email ): bool {
-		return filter_var( $email, FILTER_VALIDATE_EMAIL ) !== false;
 	}
 
 }

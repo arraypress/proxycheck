@@ -12,6 +12,13 @@ A comprehensive WordPress library for ProxyCheck.io integration, providing proxy
 - 🏷️ **Tag Management**: Track and analyze tagged queries
 - 💾 **Smart Caching**: Optimize performance and reduce API calls
 
+## Requirements
+
+- PHP 7.4 or later
+- WordPress 6.7.1 or later
+- ProxyCheck.io API key
+- Dashboard API Access enabled (for dashboard features)
+
 ## Installation
 
 Install via Composer:
@@ -19,13 +26,6 @@ Install via Composer:
 ```bash
 composer require arraypress/proxycheck
 ```
-
-## Requirements
-
-- PHP 7.4 or later
-- WordPress 6.7.1 or later
-- ProxyCheck.io API key
-- Dashboard API Access enabled (for dashboard features)
 
 ## Basic Usage
 
@@ -50,9 +50,41 @@ $results = $client->check_ips( [ '1.1.1.1', '8.8.8.8' ] );
 $email = $client->check_email( 'test@example.com', true ); // Second param enables email masking
 ```
 
-## IP & Email Detection
+## Configuration Methods
 
-### Checking IPs
+### VPN & Proxy Settings
+
+```php
+// Configure VPN detection
+$client->set_vpn( true );     // Enable VPN detection
+$client->get_vpn();           // Check if VPN detection is enabled
+
+// Configure ASN lookups
+$client->set_asn( true );     // Enable ASN data inclusion
+$client->get_asn();           // Check if ASN lookups are enabled
+
+// Configure risk assessment
+$client->set_risk( 2 );       // Set risk assessment level (0-2)
+$client->get_risk();          // Get current risk assessment level
+
+// Configure port checking
+$client->set_port( true );    // Enable port checking
+$client->get_port();          // Check if port checking is enabled
+
+// Configure time seen data
+$client->set_seen( true );    // Enable last seen data
+$client->get_seen();          // Check if last seen data is enabled
+
+// Configure history period
+$client->set_days( 7 );       // Set history period in days
+$client->get_days();          // Get current history period setting
+```
+
+## Core Features
+
+### IP & Email Detection
+
+#### Checking IPs
 
 ```php
 // Basic check with default options
@@ -78,7 +110,7 @@ if ( $result->is_proxy() ) {
 }
 ```
 
-### Checking Emails
+#### Checking Emails
 
 ```php
 // Check disposable email
@@ -92,9 +124,9 @@ if ( $result->is_disposable() ) {
 }
 ```
 
-## Dashboard Management
+### Dashboard Management
 
-### Usage & Statistics
+#### Usage & Statistics
 
 ```php
 // Get usage information
@@ -112,7 +144,7 @@ $stats = $client->get_formatted_queries( 7 ); // Last 7 days
 print_r( $stats['summary'] );
 ```
 
-### List Management
+#### List Management
 
 ```php
 // Whitelist Management
@@ -138,11 +170,17 @@ $client->set_cors_origins( [ 'https://example.com', 'https://test.com' ] );
 $client->clear_cors_origins();
 ```
 
-### Detection Analytics
+#### Detection Analytics
 
 ```php
 // Get recent detections
 $detections = $client->get_formatted_detections( 100 ); // Last 100 entries
+
+// Get detections with pagination
+$detections = $client->get_formatted_detections( 100, 50 ); // 100 entries starting from offset 50
+
+// Force bypass cache for fresh data
+$detections = $client->get_formatted_detections( 100, 0, true ); // Bypass cache
 
 // Get tagged queries
 $tags = $client->get_formatted_tags( [
@@ -152,7 +190,7 @@ $tags = $client->get_formatted_tags( [
 ] );
 ```
 
-## Response Methods
+## Response Formats
 
 ### IP Check Response
 
@@ -239,7 +277,9 @@ $block_details = $result->get_block_details();
 ]
 ```
 
-## Error Handling
+## Advanced Features
+
+### Error Handling
 
 The library uses WordPress's `WP_Error` for consistent error handling:
 
@@ -253,7 +293,7 @@ if ( is_wp_error( $result ) ) {
 }
 ```
 
-## Caching
+### Caching
 
 The library implements intelligent caching to optimize performance:
 
@@ -263,9 +303,13 @@ $client->set_cache_enabled( true );
 $client->set_cache_expiration( 3600 );  // 1 hour
 $client->set_cache_prefix( 'my_plugin_' );
 
+// Force bypass cache for specific requests
+$result = $client->export_detections( 100, 0, true );           // Bypass cache for raw data
+$formatted = $client->get_formatted_detections( 100, 0, true ); // Bypass cache for formatted data
+
 // Clear cache
 $client->clear_cache();               // All cache
-$client->clear_cache( '1.1.1.1' );     // Specific entry
+$client->clear_cache( '1.1.1.1' );    // Specific entry
 ```
 
 ## Contributing
