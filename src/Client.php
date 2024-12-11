@@ -49,35 +49,19 @@ class Client {
 	 * @var array
 	 */
 	private const DEFAULT_PARAMS = [
-		'vpn'  => 1,    // Enable VPN detection
-		'asn'  => 1,    // Include ASN data
-		'node' => 1,    // Include node information
-		'time' => 0,    // Don't include query time
-		'inf'  => 1,    // Include basic proxy information
-		'risk' => 1,    // Include basic risk score
-		'port' => 1,    // Check port
-		'seen' => 1,    // Include last seen
+		'vpn'  => 0,    // VPN detection disabled by default
+		'asn'  => 0,    // ASN data disabled by default
+		'node' => 0,    // Node information disabled by default
+		'time' => 0,    // Query time disabled by default
+		'inf'  => 0,    // Basic proxy information disabled by default
+		'risk' => 0,    // Risk score disabled by default
+		'port' => 0,    // Port check disabled by default
+		'seen' => 0,    // Last seen disabled by default
 		'days' => 7,    // Default history period
 		'tag'  => '',   // No default tag
 		'ver'  => 2,    // API version 2
-		'mask' => 0,    // Email address masking (0 = disabled, 1 = enabled)
+		'mask' => 0,    // Email address masking disabled by default
 	];
-
-	/**
-	 * Array of country codes/names to block
-	 * If IP is from these countries, block will be set to 'yes'
-	 *
-	 * @var array
-	 */
-	private array $blocked_countries = [];
-
-	/**
-	 * Array of country codes/names to allow
-	 * These countries bypass proxy/VPN blocking
-	 *
-	 * @var array
-	 */
-	private array $allowed_countries = [];
 
 	/**
 	 * Maximum number of IPs per batch request for free users
@@ -120,6 +104,29 @@ class Client {
 	private string $cache_prefix;
 
 	/**
+	 * Current parameters array to store active settings
+	 *
+	 * @var array
+	 */
+	private array $current_params;
+
+	/**
+	 * Array of country codes/names to block
+	 * If IP is from these countries, block will be set to 'yes'
+	 *
+	 * @var array
+	 */
+	private array $blocked_countries = [];
+
+	/**
+	 * Array of country codes/names to allow
+	 * These countries bypass proxy/VPN blocking
+	 *
+	 * @var array
+	 */
+	private array $allowed_countries = [];
+
+	/**
 	 * Initialize the ProxyCheck client
 	 *
 	 * Creates a new instance of the ProxyCheck client with specified configuration.
@@ -141,6 +148,22 @@ class Client {
 		$this->enable_cache     = $enable_cache;
 		$this->cache_expiration = $cache_expiration;
 		$this->cache_prefix     = $cache_prefix;
+		$this->current_params   = self::DEFAULT_PARAMS;
+	}
+
+	/**
+	 * Set the API key
+	 *
+	 * Updates the API key used for authentication with ProxyCheck.io.
+	 *
+	 * @param string $api_key The API key for ProxyCheck.io
+	 *
+	 * @return self
+	 */
+	public function set_api_key( string $api_key ): self {
+		$this->api_key = $api_key;
+
+		return $this;
 	}
 
 	/**
@@ -192,17 +215,133 @@ class Client {
 		return $this;
 	}
 
+
 	/**
-	 * Set the API key
+	 * Set VPN detection parameter
 	 *
-	 * Updates the API key used for authentication with ProxyCheck.io.
-	 *
-	 * @param string $api_key The API key for ProxyCheck.io
+	 * @param bool $enabled Whether to enable VPN detection
 	 *
 	 * @return self
 	 */
-	public function set_api_key( string $api_key ): self {
-		$this->api_key = $api_key;
+	public function set_vpn( bool $enabled ): self {
+		$this->current_params['vpn'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set ASN data parameter
+	 *
+	 * @param bool $enabled Whether to include ASN data
+	 *
+	 * @return self
+	 */
+	public function set_asn( bool $enabled ): self {
+		$this->current_params['asn'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set node information parameter
+	 *
+	 * @param bool $enabled Whether to include node information
+	 *
+	 * @return self
+	 */
+	public function set_node( bool $enabled ): self {
+		$this->current_params['node'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set query time parameter
+	 *
+	 * @param bool $enabled Whether to include query time
+	 *
+	 * @return self
+	 */
+	public function set_time( bool $enabled ): self {
+		$this->current_params['time'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set basic proxy information parameter
+	 *
+	 * @param bool $enabled Whether to include basic proxy information
+	 *
+	 * @return self
+	 */
+	public function set_inf( bool $enabled ): self {
+		$this->current_params['inf'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set risk score parameter
+	 *
+	 * @param bool $enabled Whether to include risk score
+	 *
+	 * @return self
+	 */
+	public function set_risk( bool $enabled ): self {
+		$this->current_params['risk'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set port check parameter
+	 *
+	 * @param bool $enabled Whether to check port
+	 *
+	 * @return self
+	 */
+	public function set_port( bool $enabled ): self {
+		$this->current_params['port'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set last seen parameter
+	 *
+	 * @param bool $enabled Whether to include last seen information
+	 *
+	 * @return self
+	 */
+	public function set_seen( bool $enabled ): self {
+		$this->current_params['seen'] = $enabled ? 1 : 0;
+
+		return $this;
+	}
+
+	/**
+	 * Set history period in days
+	 *
+	 * @param int $days Number of days for history
+	 *
+	 * @return self
+	 */
+	public function set_days( int $days ): self {
+		$this->current_params['days'] = $days;
+
+		return $this;
+	}
+
+	/**
+	 * Set request tag
+	 *
+	 * @param string $tag Tag to identify the request
+	 *
+	 * @return self
+	 */
+	public function set_tag( string $tag ): self {
+		$this->current_params['tag'] = $tag;
 
 		return $this;
 	}
@@ -352,14 +491,14 @@ class Client {
 	/**
 	 * Build query parameters from options
 	 *
-	 * Merges provided options with default parameters for API requests.
+	 * Merges provided options with current parameters for API requests.
 	 *
-	 * @param array $options Additional options to override defaults
+	 * @param array $options Additional options to override current params
 	 *
 	 * @return array
 	 */
 	private function build_query_params( array $options = [] ): array {
-		return array_merge( self::DEFAULT_PARAMS, $options );
+		return array_merge( $this->current_params, $options );
 	}
 
 	/**
