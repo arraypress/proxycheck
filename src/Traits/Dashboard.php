@@ -315,6 +315,19 @@ trait Dashboard {
 	}
 
 	/**
+	 * Get usage percentage
+	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
+	 * @return float Percentage of token usage
+	 */
+	public function get_usage_percentage( bool $force_check = false ): float {
+		$limit = $this->get_token_limit( $force_check );
+
+		return $limit > 0 ? round( ( $this->get_used_tokens( $force_check ) / $limit ) * 100, 2 ) : 0.0;
+	}
+
+	/**
 	 * Get remaining available tokens
 	 *
 	 * @param bool $force_check Force bypass cache if true (default: false)
@@ -341,6 +354,19 @@ trait Dashboard {
 	}
 
 	/**
+	 * Get burst token limit
+	 *
+	 * @param bool $force_check Force bypass cache if true (default: false)
+	 *
+	 * @return int Number of burst tokens allowed
+	 */
+	public function get_burst_token_limit( bool $force_check = false ): int {
+		$usage = $this->get_usage( $force_check );
+
+		return is_wp_error( $usage ) ? 0 : $usage->get_burst_token_limit();
+	}
+
+	/**
 	 * Check if token limit is exceeded
 	 *
 	 * @param bool $force_check Force bypass cache if true (default: false)
@@ -349,6 +375,41 @@ trait Dashboard {
 	 */
 	public function is_token_limit_exceeded( bool $force_check = false ): bool {
 		return $this->get_remaining_tokens( $force_check ) <= 0;
+	}
+
+	/**
+	 * Get formatted burst token usage string
+	 *
+	 * Returns a formatted string showing available and total burst tokens
+	 * in the format "X / Y available"
+	 *
+	 * @return string Formatted burst token usage string
+	 */
+	public function get_formatted_burst_usage(): string {
+		return sprintf(
+		/* translators: %1$s: available burst tokens, %2$s: total burst tokens */
+			esc_html__( '%1$s / %2$s available', 'arraypress' ),
+			number_format( $this->get_burst_tokens() ),
+			number_format( $this->get_burst_token_limit() )
+		);
+	}
+
+	/**
+	 * Get formatted token usage string
+	 *
+	 * Returns a formatted string showing used and total tokens
+	 * in the format "X / Y queries (Z% used)"
+	 *
+	 * @return string Formatted token usage string
+	 */
+	public function get_formatted_token_usage(): string {
+		return sprintf(
+		/* translators: %1$s: used tokens, %2$s: total tokens, %3$s: usage percentage */
+			esc_html__( '%1$s / %2$s queries (%3$s%% used)', 'arraypress' ),
+			number_format( $this->get_used_tokens() ),
+			number_format( $this->get_token_limit() ),
+			number_format( $this->get_usage_percentage(), 1 )
+		);
 	}
 
 	/** Blacklist Management *******************************************************/

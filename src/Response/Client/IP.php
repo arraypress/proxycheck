@@ -375,6 +375,39 @@ class IP extends Base {
 	}
 
 	/**
+	 * Get formatted currency string
+	 *
+	 * Returns a formatted string containing available currency information
+	 * in the format: "Symbol Code (Name)" e.g., "$ USD (United States Dollar)"
+	 *
+	 * @param string $separator Separator between currency parts (default: ' ')
+	 *
+	 * @return string|null Formatted currency string or null if no currency info
+	 */
+	public function get_formatted_currency( string $separator = ' ' ): ?string {
+		$currency = $this->get_currency();
+		if ( ! $currency ) {
+			return null;
+		}
+
+		$currency_parts = [];
+
+		if ( ! empty( $currency['symbol'] ) ) {
+			$currency_parts[] = $currency['symbol'];
+		}
+
+		if ( ! empty( $currency['code'] ) ) {
+			$currency_parts[] = $currency['code'];
+		}
+
+		if ( ! empty( $currency['name'] ) ) {
+			$currency_parts[] = "({$currency['name']})";
+		}
+
+		return empty( $currency_parts ) ? null : implode( $separator, $currency_parts );
+	}
+
+	/**
 	 * Get timezone information
 	 *
 	 * @return string|null
