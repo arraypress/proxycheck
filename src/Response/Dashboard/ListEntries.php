@@ -1,6 +1,8 @@
 <?php
 /**
- * ProxyCheck.io List Entries Response Class
+ * Class ListEntries
+ *
+ * Handles response data from the ProxyCheck.io API for list operations.
  *
  * @package     ArrayPress/ProxyCheck
  * @copyright   Copyright (c) 2024, ArrayPress Limited
@@ -10,40 +12,9 @@
 
 declare( strict_types=1 );
 
-namespace ArrayPress\ProxyCheck\Response;
+namespace ArrayPress\ProxyCheck\Response\Dashboard;
 
-/**
- * Class ListEntries
- *
- * Handles response data from the ProxyCheck.io API for list operations.
- */
-class ListEntries {
-
-	/**
-	 * Raw response data from the API
-	 *
-	 * @var array
-	 */
-	private array $data;
-
-	/**
-	 * Initialize the response object
-	 *
-	 * @param array $data Raw response data from ProxyCheck API
-	 */
-	public function __construct( array $data ) {
-		$this->data = $data;
-	}
-
-	/**
-	 * Get raw data array
-	 *
-	 * @return array
-	 */
-	public function get_all(): array {
-		return $this->data;
-	}
-
+class ListEntries extends Base {
 	/**
 	 * Get list entries
 	 *
@@ -69,6 +40,20 @@ class ListEntries {
 	}
 
 	/**
+	 * Format the list entries
+	 *
+	 * @return array Array of formatted entries
+	 */
+	public function format(): array {
+		return [
+			'entries' => $this->get_entries(),
+			'count'   => count( $this->get_entries() ),
+			'status'  => $this->get_status(),
+			'message' => $this->get_message()
+		];
+	}
+
+	/**
 	 * Convert the entries to a string
 	 *
 	 * @return string
@@ -86,33 +71,6 @@ class ListEntries {
 	 */
 	public function is_empty(): bool {
 		return empty( $this->get_entries() );
-	}
-
-	/**
-	 * Get status message
-	 *
-	 * @return string|null
-	 */
-	public function get_status(): ?string {
-		return $this->data['status'] ?? null;
-	}
-
-	/**
-	 * Get message
-	 *
-	 * @return string|null
-	 */
-	public function get_message(): ?string {
-		return $this->data['message'] ?? null;
-	}
-
-	/**
-	 * Check if operation was successful
-	 *
-	 * @return bool
-	 */
-	public function is_successful(): bool {
-		return ( $this->data['status'] ?? '' ) === 'ok';
 	}
 
 }

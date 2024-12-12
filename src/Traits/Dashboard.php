@@ -1,16 +1,6 @@
 <?php
 /**
- * Dashboard API Trait
- *
- * Provides comprehensive access to ProxyCheck.io's Dashboard API functionality including:
- * - Usage statistics and token management
- * - Detection exports and analytics
- * - Tag management and reporting
- * - Whitelist/Blocklist management
- * - CORS origins configuration
- *
- * Requires API key and Dashboard API Access to be enabled in proxycheck.io dashboard.
- * All API responses are cached by default to optimize performance and reduce API calls.
+ * ProxyCheck.io Dashboard Trait
  *
  * @package     ArrayPress/ProxyCheck
  * @copyright   Copyright (c) 2024, ArrayPress Limited
@@ -22,7 +12,11 @@ declare( strict_types=1 );
 
 namespace ArrayPress\ProxyCheck\Traits;
 
-use ArrayPress\ProxyCheck\Response\ListEntries;
+use ArrayPress\ProxyCheck\Response\Dashboard\DetectionEntry;
+use ArrayPress\ProxyCheck\Response\Dashboard\ListEntries;
+use ArrayPress\ProxyCheck\Response\Dashboard\QueryStatistics;
+use ArrayPress\ProxyCheck\Response\Dashboard\TagEntry;
+use ArrayPress\ProxyCheck\Response\Dashboard\UsageStatistics;
 use WP_Error;
 
 /**
@@ -34,8 +28,6 @@ trait Dashboard {
 
 	/**
 	 * Base URL for the Dashboard API
-	 *
-	 * @var string
 	 */
 	private string $dashboard_api_base = 'https://proxycheck.io/dashboard/';
 
@@ -48,7 +40,7 @@ trait Dashboard {
 	 * @param int  $offset      Offset for pagination (default: 0)
 	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return DetectionEntry|WP_Error Response object or WP_Error on failure
 	 */
 	public function export_detections( int $limit = 100, int $offset = 0, bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'detections', [ 'limit' => $limit, 'offset' => $offset ] );
@@ -68,8 +60,11 @@ trait Dashboard {
 
 		$response = $this->make_dashboard_request( 'export/detections/', $params );
 
-		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
-			set_transient( $cache_key, $response, $this->cache_expiration );
+		if ( ! is_wp_error( $response ) ) {
+			$response = new DetectionEntry( $response );
+			if ( $this->enable_cache ) {
+				set_transient( $cache_key, $response, $this->cache_expiration );
+			}
 		}
 
 		return $response;
@@ -91,42 +86,18 @@ trait Dashboard {
 			return [];
 		}
 
-		$formatted = [];
-		foreach ( $detections as $key => $detection ) {
-			if ( ! is_numeric( $key ) ) {
-				continue;
-			}
-
-			$formatted[] = [
-				'time'     => $detection['time formatted'] ?? '',
-				'time_raw' => $detection['time raw'] ?? '',
-				'address'  => $detection['address'] ?? '',
-				'type'     => $detection['detection type'] ?? '',
-				'node'     => $detection['answering node'] ?? '',
-				'tag'      => $detection['tag'] ?? '',
-				'country'  => $detection['country'] ?? '',
-				'port'     => $detection['port'] ?? null
-			];
-		}
-
-		return $formatted;
+		return $detections->format();
 	}
 
 	/** Export Tags ****************************************************/
 
 	/**
-	 * Export tags data
+	 * Export tags data with comprehensive response handling
 	 *
-	 * @param array $options     Options for the export
-	 *                           - limit: int (default: 100)
-	 *                           - offset: int (default: 0)
-	 *                           - addresses: bool (default: false)
-	 *                           - days: int|null
-	 *                           - start: int|null (unix timestamp)
-	 *                           - end: int|null (unix timestamp)
+	 * @param array $options     Options for the export (limit, offset, addresses, days, start, end)
 	 * @param bool  $force_check Force bypass cache if true (default: false)
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return TagEntry|WP_Error Response object or WP_Error on failure
 	 */
 	public function export_tags( array $options = [], bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'tags', $options );
@@ -158,8 +129,11 @@ trait Dashboard {
 
 		$response = $this->make_dashboard_request( 'export/tags/', $params );
 
-		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
-			set_transient( $cache_key, $response, $this->cache_expiration );
+		if ( ! is_wp_error( $response ) ) {
+			$response = new TagEntry( $response );
+			if ( $this->enable_cache ) {
+				set_transient( $cache_key, $response, $this->cache_expiration );
+			}
 		}
 
 		return $response;
@@ -180,15 +154,7 @@ trait Dashboard {
 			return [];
 		}
 
-		return array_map( function ( $data ) {
-			return [
-				'total'     => $data['types']['total'] ?? 0,
-				'proxy'     => $data['types']['proxy'] ?? 0,
-				'vpn'       => $data['types']['vpn'] ?? 0,
-				'rule'      => $data['types']['rule'] ?? 0,
-				'addresses' => $data['addresses'] ?? []
-			];
-		}, $tags );
+		return $tags->format();
 	}
 
 	/** Export Queries *******************************************************************/
@@ -196,11 +162,9 @@ trait Dashboard {
 	/**
 	 * Export query statistics for the past 30 days
 	 *
-	 * Retrieves statistical data about API queries made in the last 30 days.
-	 *
 	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
-	 * @return array|WP_Error Response array or WP_Error on failure
+	 * @return QueryStatistics|WP_Error Response object or WP_Error on failure
 	 */
 	public function export_queries( bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'queries_30day' );
@@ -215,8 +179,11 @@ trait Dashboard {
 		$params   = [ 'json' => 1 ];
 		$response = $this->make_dashboard_request( 'export/queries/', $params );
 
-		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
-			set_transient( $cache_key, $response, $this->cache_expiration );
+		if ( ! is_wp_error( $response ) ) {
+			$response = new QueryStatistics( $response );
+			if ( $this->enable_cache ) {
+				set_transient( $cache_key, $response, $this->cache_expiration );
+			}
 		}
 
 		return $response;
@@ -225,18 +192,12 @@ trait Dashboard {
 	/**
 	 * Get formatted query statistics
 	 *
-	 * Returns formatted statistical data about API queries for the specified period,
-	 * including daily totals and detection types.
-	 *
 	 * @param int  $days        Number of days to retrieve (default: 30, max: 30)
 	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
 	 * @return array Formatted query statistics
 	 */
 	public function get_formatted_queries( int $days = 30, bool $force_check = false ): array {
-		// Ensure days is within valid range
-		$days = min( max( $days, 1 ), 30 );
-
 		$queries = $this->export_queries( $force_check );
 
 		if ( is_wp_error( $queries ) ) {
@@ -258,98 +219,17 @@ trait Dashboard {
 			];
 		}
 
-		// Extract today's data if available
-		$today_data = isset( $queries['TODAY'] ) ? [
-			'proxies'           => (int) ( $queries['TODAY']['proxies'] ?? 0 ),
-			'vpns'              => (int) ( $queries['TODAY']['vpns'] ?? 0 ),
-			'undetected'        => (int) ( $queries['TODAY']['undetected'] ?? 0 ),
-			'refused_queries'   => (int) ( $queries['TODAY']['refused queries'] ?? 0 ),
-			'disposable_emails' => (int) ( $queries['TODAY']['disposable emails'] ?? 0 ),
-			'reusable_emails'   => (int) ( $queries['TODAY']['reusable emails'] ?? 0 ),
-			'custom_rules'      => (int) ( $queries['TODAY']['custom rules'] ?? 0 ),
-			'blacklisted'       => (int) ( $queries['TODAY']['blacklisted'] ?? 0 ),
-			'total_queries'     => (int) ( $queries['TODAY']['total queries'] ?? 0 )
-		] : null;
-
-		// Take only the requested number of days
-		$queries = array_slice( $queries, 0, $days, true );
-
-		$days_data = [];
-		$totals    = [
-			'proxies'           => 0,
-			'vpns'              => 0,
-			'undetected'        => 0,
-			'disposable_emails' => 0,
-			'reusable_emails'   => 0,
-			'refused_queries'   => 0,
-			'custom_rules'      => 0,
-			'blacklisted'       => 0,
-			'total_queries'     => 0
-		];
-
-		foreach ( $queries as $day => $stats ) {
-			if ( $day === 'TODAY' ) {
-				continue;
-			} // Skip TODAY as it's handled separately
-
-			$formatted_stats = [
-				'day'               => $day,
-				'proxies'           => (int) ( $stats['proxies'] ?? 0 ),
-				'vpns'              => (int) ( $stats['vpns'] ?? 0 ),
-				'undetected'        => (int) ( $stats['undetected'] ?? 0 ),
-				'disposable_emails' => (int) ( $stats['disposable emails'] ?? 0 ),
-				'reusable_emails'   => (int) ( $stats['reusable emails'] ?? 0 ),
-				'refused_queries'   => (int) ( $stats['refused queries'] ?? 0 ),
-				'custom_rules'      => (int) ( $stats['custom rules'] ?? 0 ),
-				'blacklisted'       => (int) ( $stats['blacklisted'] ?? 0 ),
-				'total_queries'     => (int) ( $stats['total queries'] ?? 0 )
-			];
-
-			$days_data[] = $formatted_stats;
-
-			foreach ( $formatted_stats as $key => $value ) {
-				if ( $key !== 'day' ) {
-					$totals[ $key ] += $value;
-				}
-			}
-		}
-
-		$percentages = [];
-		if ( $totals['total_queries'] > 0 ) {
-			foreach ( $totals as $key => $value ) {
-				if ( $key !== 'total_queries' ) {
-					$percentages[ $key ] = round( ( $value / $totals['total_queries'] ) * 100, 2 );
-				}
-			}
-		}
-
-		return [
-			'period'      => $days,
-			'days'        => $days_data,
-			'totals'      => $totals,
-			'percentages' => $percentages,
-			'today'       => $today_data,
-			'summary'     => [
-				'period_days'           => $days,
-				'active_days'           => count( array_filter( $days_data, fn( $day ) => $day['total_queries'] > 0 ) ),
-				'total_queries'         => $totals['total_queries'],
-				'detected_threats'      => $totals['proxies'] + $totals['vpns'] + $totals['disposable_emails'],
-				'detection_rate'        => $totals['total_queries'] > 0 ?
-					round( ( ( $totals['proxies'] + $totals['vpns'] + $totals['disposable_emails'] ) /
-					         $totals['total_queries'] ) * 100, 2 ) : 0,
-				'average_daily_queries' => round( $totals['total_queries'] / $days, 2 )
-			]
-		];
+		return $queries->format( $days );
 	}
 
 	/** Usage/Tokens *******************************************************************/
 
 	/**
-	 * Get token usage information from the API
+	 * Get token usage information
 	 *
 	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
-	 * @return array|WP_Error Token usage info or WP_Error on failure
+	 * @return UsageStatistics|WP_Error Usage statistics or WP_Error on failure
 	 */
 	public function get_usage( bool $force_check = false ) {
 		$cache_key = $this->get_cache_key( 'usage' );
@@ -363,8 +243,11 @@ trait Dashboard {
 
 		$response = $this->make_dashboard_request( 'export/usage/' );
 
-		if ( ! is_wp_error( $response ) && $this->enable_cache ) {
-			set_transient( $cache_key, $response, $this->cache_expiration );
+		if ( ! is_wp_error( $response ) ) {
+			$response = new UsageStatistics( $response );
+			if ( $this->enable_cache ) {
+				set_transient( $cache_key, $response, $this->cache_expiration );
+			}
 		}
 
 		return $response;
@@ -375,7 +258,16 @@ trait Dashboard {
 	 *
 	 * @param bool $force_check Force bypass cache if true (default: false)
 	 *
-	 * @return array Formatted usage information
+	 * @return array{
+	 *     used: int,
+	 *     limit: int,
+	 *     total: int,
+	 *     plan: string,
+	 *     burst_available: int,
+	 *     burst_limit: int,
+	 *     percentage: float,
+	 *     remaining: int
+	 * } Formatted usage information
 	 */
 	public function get_formatted_usage( bool $force_check = false ): array {
 		$usage = $this->get_usage( $force_check );
@@ -393,19 +285,7 @@ trait Dashboard {
 			];
 		}
 
-		$used  = (int) ( $usage['Queries Today'] ?? 0 );
-		$limit = (int) ( $usage['Daily Limit'] ?? 0 );
-
-		return [
-			'used'            => $used,
-			'limit'           => $limit,
-			'total'           => (int) ( $usage['Queries Total'] ?? 0 ),
-			'plan'            => $usage['Plan Tier'] ?? 'Unknown',
-			'burst_available' => (int) ( $usage['Burst Tokens Available'] ?? 0 ),
-			'burst_limit'     => (int) ( $usage['Burst Token Allowance'] ?? 0 ),
-			'percentage'      => $limit > 0 ? round( ( $used / $limit ) * 100, 2 ) : 0.0,
-			'remaining'       => max( 0, $limit - $used )
-		];
+		return $usage->format();
 	}
 
 	/**
@@ -416,9 +296,9 @@ trait Dashboard {
 	 * @return int Number of used tokens
 	 */
 	public function get_used_tokens( bool $force_check = false ): int {
-		$tokens = $this->get_usage( $force_check );
+		$usage = $this->get_usage( $force_check );
 
-		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Queries Today'] ?? 0 );
+		return is_wp_error( $usage ) ? 0 : $usage->get_used_tokens();
 	}
 
 	/**
@@ -429,9 +309,9 @@ trait Dashboard {
 	 * @return int Daily token limit
 	 */
 	public function get_token_limit( bool $force_check = false ): int {
-		$tokens = $this->get_usage( $force_check );
+		$usage = $this->get_usage( $force_check );
 
-		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Daily Limit'] ?? 0 );
+		return is_wp_error( $usage ) ? 0 : $usage->get_token_limit();
 	}
 
 	/**
@@ -442,16 +322,9 @@ trait Dashboard {
 	 * @return int Number of remaining tokens
 	 */
 	public function get_remaining_tokens( bool $force_check = false ): int {
-		$tokens = $this->get_usage( $force_check );
+		$usage = $this->get_usage( $force_check );
 
-		if ( is_wp_error( $tokens ) ) {
-			return 0;
-		}
-
-		$used  = (int) ( $tokens['Queries Today'] ?? 0 );
-		$limit = (int) ( $tokens['Daily Limit'] ?? 0 );
-
-		return max( 0, $limit - $used );
+		return is_wp_error( $usage ) ? 0 : $usage->get_remaining_tokens();
 	}
 
 	/**
@@ -462,9 +335,9 @@ trait Dashboard {
 	 * @return int Number of available burst tokens
 	 */
 	public function get_burst_tokens( bool $force_check = false ): int {
-		$tokens = $this->get_usage( $force_check );
+		$usage = $this->get_usage( $force_check );
 
-		return is_wp_error( $tokens ) ? 0 : (int) ( $tokens['Burst Tokens Available'] ?? 0 );
+		return is_wp_error( $usage ) ? 0 : $usage->get_burst_tokens();
 	}
 
 	/**
@@ -666,7 +539,7 @@ trait Dashboard {
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
-	public function manage_list( string $action, ?string $list = null, ?string $data = null ) {
+	protected function manage_list( string $action, ?string $list = null, ?string $data = null ) {
 		$valid_actions = [ 'print', 'add', 'remove', 'set', 'clear', 'erase', 'forcedl' ];
 
 		// Handle 'list' action for CORS (equivalent to 'print')
@@ -723,7 +596,7 @@ trait Dashboard {
 	 *
 	 * @return string Formatted list
 	 */
-	private function format_list( $items ): string {
+	protected function format_list( $items ): string {
 		if ( is_array( $items ) ) {
 			$items = array_map( 'trim', $items );
 
@@ -768,11 +641,9 @@ trait Dashboard {
 
 		$args = wp_parse_args( $args, $default_args );
 
-		if ( isset( $args['method'] ) && $args['method'] === 'POST' ) {
-			$response = wp_remote_post( $url, $args );
-		} else {
-			$response = wp_remote_get( $url, $args );
-		}
+		$response = isset( $args['method'] ) && $args['method'] === 'POST'
+			? wp_remote_post( $url, $args )
+			: wp_remote_get( $url, $args );
 
 		return $this->handle_response( $response );
 	}
