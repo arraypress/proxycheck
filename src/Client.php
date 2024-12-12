@@ -1,11 +1,20 @@
 <?php
 /**
- * Validate an IP address
- *
- * Checks if a string is a valid IPv4 or IPv6  ProxyCheck.io Client Class
+ * ProxyCheck.io Client Class
  *
  * A comprehensive utility class for interacting with the ProxyCheck.io API service.
- * Provides methods for checking IPs and email addresses against proxy/VPN usage.
+ * Provides methods for checking IPs and email addresses against proxy/VPN usage,
+ * as well as managing dashboard functionality and bulk operations.
+ *
+ * Features include:
+ * - IP proxy/VPN detection
+ * - Email disposable address detection
+ * - Dashboard statistics and analytics
+ * - List management (whitelist/blacklist)
+ * - CORS origins configuration
+ * - Query tagging and tracking
+ * - Country blocking rules
+ * - Caching support
  *
  * @package     ArrayPress/ProxyCheck
  * @copyright   Copyright (c) 2024, ArrayPress Limited
@@ -17,8 +26,8 @@ declare( strict_types=1 );
 
 namespace ArrayPress\ProxyCheck;
 
-use ArrayPress\ProxyCheck\Response\IP;
-use ArrayPress\ProxyCheck\Response\DisposableEmail;
+use ArrayPress\ProxyCheck\Response\Client\IP;
+use ArrayPress\ProxyCheck\Response\Client\DisposableEmail;
 use ArrayPress\ProxyCheck\Traits\Dashboard;
 use Exception;
 use WP_Error;
@@ -152,6 +161,8 @@ class Client {
 		$this->current_params   = self::DEFAULT_PARAMS;
 	}
 
+	/** Initialization & Configuration Methods *******************************************************************/
+
 	/**
 	 * Set the API key
 	 *
@@ -250,6 +261,8 @@ class Client {
 
 		return $this;
 	}
+
+	/** Parameter Configuration Methods *******************************************************************/
 
 	/**
 	 * Set VPN detection mode
@@ -594,6 +607,8 @@ class Client {
 		return $this->current_params['tag'] ?? '';
 	}
 
+	/** Country Management Methods *******************************************************************/
+
 	/**
 	 * Set countries to block
 	 * Accepts array of country names or ISO codes
@@ -614,6 +629,28 @@ class Client {
 	}
 
 	/**
+	 * Get blocked countries
+	 *
+	 * Returns array of currently blocked country codes
+	 *
+	 * @return array Array of country codes/names that are blocked
+	 */
+	public function get_blocked_countries(): array {
+		return $this->blocked_countries;
+	}
+
+	/**
+	 * Check if country is blocked
+	 *
+	 * @param string $country Country code or name to check
+	 *
+	 * @return bool True if country is in blocked list
+	 */
+	public function is_country_blocked( string $country ): bool {
+		return in_array( strtoupper( $country ), $this->blocked_countries );
+	}
+
+	/**
 	 * Set countries to allow
 	 * These countries bypass proxy/VPN blocking
 	 *
@@ -628,47 +665,28 @@ class Client {
 	}
 
 	/**
-	 * Apply country blocking rules to response
-	 * Adds block and block_reason fields based on country rules
+	 * Get allowed countries
 	 *
-	 * @param array  $response API response
-	 * @param string $address  IP address being checked
+	 * Returns array of countries that bypass proxy/VPN blocking
 	 *
-	 * @return array Modified response
+	 * @return array Array of country codes/names that are allowed
 	 */
-	private function apply_country_rules( array $response, string $address ): array {
-		// Skip if no country info available
-		if ( ! isset( $response[ $address ]['country'] ) ) {
-			$response['block']        = 'na';
-			$response['block_reason'] = 'na';
-
-			return $response;
-		}
-
-		// Get country info
-		$country = strtoupper( $response[ $address ]['country'] );
-		$isocode = strtoupper( $response[ $address ]['isocode'] ?? '' );
-
-		// First check if country is blocked
-		if ( $response['block'] === 'no' && ! empty( $this->blocked_countries ) ) {
-			if ( in_array( $country, $this->blocked_countries ) ||
-			     in_array( $isocode, $this->blocked_countries ) ) {
-				$response['block']        = 'yes';
-				$response['block_reason'] = 'country';
-			}
-		}
-
-		// Then check if country is explicitly allowed
-		if ( $response['block'] === 'yes' && ! empty( $this->allowed_countries ) ) {
-			if ( in_array( $country, $this->allowed_countries ) ||
-			     in_array( $isocode, $this->allowed_countries ) ) {
-				$response['block']        = 'no';
-				$response['block_reason'] = 'na';
-			}
-		}
-
-		return $response;
+	public function get_allowed_countries(): array {
+		return $this->allowed_countries;
 	}
+
+	/**
+	 * Check if country is allowed
+	 *
+	 * @param string $country Country code or name to check
+	 *
+	 * @return bool True if country is in allowed list
+	 */
+	public function is_country_allowed( string $country ): bool {
+		return in_array( strtoupper( $country ), $this->allowed_countries );
+	}
+
+	/** Request Handling Methods *******************************************************************/
 
 	/**
 	 * Process email address for privacy
@@ -685,60 +703,6 @@ class Client {
 		}
 
 		return $email;
-	}
-
-	/**
-	 * Add block status to response
-	 * Determines if IP should be blocked based on proxy/VPN status,
-	 * operator details, and risk assessment
-	 *
-	 * @param array  $response API response
-	 * @param string $address  IP or email being checked
-	 *
-	 * @return array Modified response
-	 */
-	private function add_block_status( array $response, string $address ): array {
-		// Handle email disposable check
-		if ( strpos( $address, '@' ) !== false && isset( $response[ $address ]['disposable'] ) ) {
-			$response['block']        = $response[ $address ]['disposable'] === 'yes' ? 'yes' : 'no';
-			$response['block_reason'] = $response[ $address ]['disposable'] === 'yes' ? 'disposable' : 'na';
-
-			return $response;
-		}
-
-		// Initialize block status
-		$response['block']        = 'no';
-		$response['block_reason'] = 'na';
-
-		$ip_data = $response[ $address ];
-
-		// Check for proxy/VPN status with operator details
-		if ( isset( $ip_data['proxy'] ) && $ip_data['proxy'] === 'yes' ) {
-			$response['block']        = 'yes';
-			$response['block_reason'] = isset( $ip_data['type'] ) &&
-			                            $ip_data['type'] === 'VPN' ? 'vpn' : 'proxy';
-
-			// Add operator details if available
-			if ( isset( $ip_data['operator'] ) ) {
-				$response['block_details'] = [
-					'name'       => $ip_data['operator']['name'] ?? '',
-					'anonymity'  => $ip_data['operator']['anonymity'] ?? '',
-					'popularity' => $ip_data['operator']['popularity'] ?? ''
-				];
-			}
-		}
-
-		// Check risk score
-		if ( isset( $ip_data['risk'] ) && $ip_data['risk'] > 70 ) {
-			$response['block'] = 'yes';
-			// Only update block reason if not already blocked for proxy/VPN
-			if ( $response['block_reason'] === 'na' ) {
-				$response['block_reason'] = 'high_risk';
-			}
-		}
-
-		// Apply country rules
-		return $this->apply_country_rules( $response, $address );
 	}
 
 	/**
@@ -876,6 +840,8 @@ class Client {
 		return $data;
 	}
 
+	/** Core API Methods *******************************************************************/
+
 	/**
 	 * Check a single IP address
 	 *
@@ -978,6 +944,103 @@ class Client {
 	}
 
 	/**
+	 * Add block status to response
+	 * Determines if IP should be blocked based on proxy/VPN status,
+	 * operator details, and risk assessment
+	 *
+	 * @param array  $response API response
+	 * @param string $address  IP or email being checked
+	 *
+	 * @return array Modified response
+	 */
+	private function add_block_status( array $response, string $address ): array {
+		// Handle email disposable check
+		if ( strpos( $address, '@' ) !== false && isset( $response[ $address ]['disposable'] ) ) {
+			$response['block']        = $response[ $address ]['disposable'] === 'yes' ? 'yes' : 'no';
+			$response['block_reason'] = $response[ $address ]['disposable'] === 'yes' ? 'disposable' : 'na';
+
+			return $response;
+		}
+
+		// Initialize block status
+		$response['block']        = 'no';
+		$response['block_reason'] = 'na';
+
+		$ip_data = $response[ $address ];
+
+		// Check for proxy/VPN status with operator details
+		if ( isset( $ip_data['proxy'] ) && $ip_data['proxy'] === 'yes' ) {
+			$response['block']        = 'yes';
+			$response['block_reason'] = isset( $ip_data['type'] ) &&
+			                            $ip_data['type'] === 'VPN' ? 'vpn' : 'proxy';
+
+			// Add operator details if available
+			if ( isset( $ip_data['operator'] ) ) {
+				$response['block_details'] = [
+					'name'       => $ip_data['operator']['name'] ?? '',
+					'anonymity'  => $ip_data['operator']['anonymity'] ?? '',
+					'popularity' => $ip_data['operator']['popularity'] ?? ''
+				];
+			}
+		}
+
+		// Check risk score
+		if ( isset( $ip_data['risk'] ) && $ip_data['risk'] > 70 ) {
+			$response['block'] = 'yes';
+			// Only update block reason if not already blocked for proxy/VPN
+			if ( $response['block_reason'] === 'na' ) {
+				$response['block_reason'] = 'high_risk';
+			}
+		}
+
+		// Apply country rules
+		return $this->apply_country_rules( $response, $address );
+	}
+
+	/**
+	 * Apply country blocking rules to response
+	 * Adds block and block_reason fields based on country rules
+	 *
+	 * @param array  $response API response
+	 * @param string $address  IP address being checked
+	 *
+	 * @return array Modified response
+	 */
+	private function apply_country_rules( array $response, string $address ): array {
+		// Skip if no country info available
+		if ( ! isset( $response[ $address ]['country'] ) ) {
+			$response['block']        = 'na';
+			$response['block_reason'] = 'na';
+
+			return $response;
+		}
+
+		// Get country info
+		$country = strtoupper( $response[ $address ]['country'] );
+		$isocode = strtoupper( $response[ $address ]['isocode'] ?? '' );
+
+		// First check if country is blocked
+		if ( $response['block'] === 'no' && ! empty( $this->blocked_countries ) ) {
+			if ( in_array( $country, $this->blocked_countries ) ||
+			     in_array( $isocode, $this->blocked_countries ) ) {
+				$response['block']        = 'yes';
+				$response['block_reason'] = 'country';
+			}
+		}
+
+		// Then check if country is explicitly allowed
+		if ( $response['block'] === 'yes' && ! empty( $this->allowed_countries ) ) {
+			if ( in_array( $country, $this->allowed_countries ) ||
+			     in_array( $isocode, $this->allowed_countries ) ) {
+				$response['block']        = 'no';
+				$response['block_reason'] = 'na';
+			}
+		}
+
+		return $response;
+	}
+
+	/**
 	 * Check if an email is disposable
 	 *
 	 * @param string $email Email address to check
@@ -1019,6 +1082,8 @@ class Client {
 
 		return new DisposableEmail( $response );
 	}
+
+	/** Cache Utility Methods *******************************************************************/
 
 	/**
 	 * Generate cache key

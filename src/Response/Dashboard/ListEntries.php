@@ -15,6 +15,7 @@ declare( strict_types=1 );
 namespace ArrayPress\ProxyCheck\Response\Dashboard;
 
 class ListEntries extends Base {
+
 	/**
 	 * Get list entries
 	 *

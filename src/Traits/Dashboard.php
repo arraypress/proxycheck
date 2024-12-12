@@ -389,7 +389,7 @@ trait Dashboard {
 	}
 
 	/**
-	 * Remove IP address from blocklist
+	 * Remove IP address from blacklist
 	 *
 	 * @param string|array $ips Single IP or array of IPs to remove
 	 *

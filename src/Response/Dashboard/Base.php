@@ -1,6 +1,6 @@
 <?php
 /**
- * Abstract Base Dashboard Response Class
+ * ProxyCheck.io Base Dashboard Response Class
  *
  * Provides common functionality for all dashboard response classes.
  *
@@ -14,6 +14,11 @@ declare( strict_types=1 );
 
 namespace ArrayPress\ProxyCheck\Response\Dashboard;
 
+/**
+ * Abstract class BaseResponse
+ *
+ * Base response handler for ProxyCheck.io API responses.
+ */
 abstract class Base {
 
 	/**

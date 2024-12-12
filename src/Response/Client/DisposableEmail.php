@@ -10,7 +10,7 @@
 
 declare( strict_types=1 );
 
-namespace ArrayPress\ProxyCheck\Response;
+namespace ArrayPress\ProxyCheck\Response\Client;
 
 /**
  * Class DisposableEmailResponse

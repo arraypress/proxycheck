@@ -1,6 +1,6 @@
 <?php
 /**
- * ProxyCheck.io Base Response Class
+ * ProxyCheck.io Base Client Response Class
  *
  * @package     ArrayPress/ProxyCheck
  * @copyright   Copyright (c) 2024, ArrayPress Limited
@@ -10,7 +10,7 @@
 
 declare( strict_types=1 );
 
-namespace ArrayPress\ProxyCheck\Response;
+namespace ArrayPress\ProxyCheck\Response\Client;
 
 /**
  * Abstract class BaseResponse
