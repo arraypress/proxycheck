@@ -156,11 +156,11 @@ $client->set_whitelist( ['1.1.1.1', '2.2.2.2' ] ); // Replace all
 $client->clear_whitelist();
 
 // Blocklist Management
-$client->get_blocklist();
-$client->add_to_blocklist( '1.1.1.1' );
-$client->remove_from_blocklist( '1.1.1.1' );
-$client->set_blocklist( ['1.1.1.1', '2.2.2.2' ] );
-$client->clear_blocklist();
+$client->get_blacklist();
+$client->add_to_blacklist( '1.1.1.1' );
+$client->remove_from_blacklist( '1.1.1.1' );
+$client->set_blacklist( ['1.1.1.1', '2.2.2.2' ] );
+$client->clear_blacklist();
 
 // CORS Origins Management
 $client->get_cors_origins();

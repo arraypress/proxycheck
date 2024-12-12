@@ -253,9 +253,23 @@ trait Dashboard {
 					'custom_rules'      => 0,
 					'blacklisted'       => 0,
 					'total_queries'     => 0
-				]
+				],
+				'today'  => null
 			];
 		}
+
+		// Extract today's data if available
+		$today_data = isset( $queries['TODAY'] ) ? [
+			'proxies'           => (int) ( $queries['TODAY']['proxies'] ?? 0 ),
+			'vpns'              => (int) ( $queries['TODAY']['vpns'] ?? 0 ),
+			'undetected'        => (int) ( $queries['TODAY']['undetected'] ?? 0 ),
+			'refused_queries'   => (int) ( $queries['TODAY']['refused queries'] ?? 0 ),
+			'disposable_emails' => (int) ( $queries['TODAY']['disposable emails'] ?? 0 ),
+			'reusable_emails'   => (int) ( $queries['TODAY']['reusable emails'] ?? 0 ),
+			'custom_rules'      => (int) ( $queries['TODAY']['custom rules'] ?? 0 ),
+			'blacklisted'       => (int) ( $queries['TODAY']['blacklisted'] ?? 0 ),
+			'total_queries'     => (int) ( $queries['TODAY']['total queries'] ?? 0 )
+		] : null;
 
 		// Take only the requested number of days
 		$queries = array_slice( $queries, 0, $days, true );
@@ -274,6 +288,10 @@ trait Dashboard {
 		];
 
 		foreach ( $queries as $day => $stats ) {
+			if ( $day === 'TODAY' ) {
+				continue;
+			} // Skip TODAY as it's handled separately
+
 			$formatted_stats = [
 				'day'               => $day,
 				'proxies'           => (int) ( $stats['proxies'] ?? 0 ),
@@ -310,6 +328,7 @@ trait Dashboard {
 			'days'        => $days_data,
 			'totals'      => $totals,
 			'percentages' => $percentages,
+			'today'       => $today_data,
 			'summary'     => [
 				'period_days'           => $days,
 				'active_days'           => count( array_filter( $days_data, fn( $day ) => $day['total_queries'] > 0 ) ),
