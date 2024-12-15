@@ -1,5 +1,6 @@
 {
   "name": "arraypress/proxycheck",
+  "version": "1.0.0",
   "description": "A PHP library for integrating with the ProxyCheck.io API in WordPress, providing proxy & VPN detection, disposable email verification, geolocation, and risk assessment. Features comprehensive response handling and WordPress transient caching.",
   "type": "library",
   "license": "GPL-2.0-or-later",
