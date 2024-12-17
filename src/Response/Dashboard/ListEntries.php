@@ -4,10 +4,11 @@
  *
  * Handles response data from the ProxyCheck.io API for list operations.
  *
- * @package     ArrayPress/ProxyCheck
+ * @package     ArrayPress\ProxyCheck
  * @copyright   Copyright (c) 2024, ArrayPress Limited
  * @license     GPL2+
  * @version     1.0.0
+ * @author      David Sherlock
  */
 
 declare( strict_types=1 );
