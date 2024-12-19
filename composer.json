@@ -21,10 +21,10 @@
   },
   "config": {
     "optimize-autoloader": true,
-    "sort-packages": true
+    "sort-packages": true,
+    "preferred-install": "dist"
   },
   "minimum-stability": "stable",
-  "prefer-stable": true,
   "support": {
     "issues": "https://github.com/arraypress/proxycheck/issues",
     "source": "https://github.com/arraypress/proxycheck"
