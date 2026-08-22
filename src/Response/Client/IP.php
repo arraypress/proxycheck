@@ -616,7 +616,7 @@ class IP extends Base {
 		}
 
 		if ( ! empty( $operator['asn'] ) ) {
-			$parts[] = "(${operator['asn']})";
+			$parts[] = "({$operator['asn']})";
 		}
 
 		return empty( $parts ) ? null : implode( ' ', $parts );

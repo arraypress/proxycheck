@@ -15,6 +15,7 @@ namespace ArrayPress\ProxyCheck;
 
 use ArrayPress\ProxyCheck\Traits\Parameters;
 use ArrayPress\ProxyCheck\Traits\Dashboard;
+use ArrayPress\ProxyCheck\Traits\FailureCache;
 use ArrayPress\ProxyCheck\Response\Client\IP;
 use ArrayPress\ProxyCheck\Response\Client\DisposableEmail;
 use Exception;
@@ -23,6 +24,7 @@ use WP_Error;
 class Client {
 	use Parameters;
 	use Dashboard;
+	use FailureCache;
 
 	/**
 	 * Base URL for the ProxyCheck API endpoints
@@ -233,10 +235,18 @@ class Client {
 			}
 		}
 
+		// A lookup that just failed will almost certainly fail again. Answer
+		// now rather than making this visitor wait out the timeout as well.
+		if ( $this->recently_failed( $cache_key ) ) {
+			return $this->recent_failure_error();
+		}
+
 		$params   = $this->build_query_params( $options );
 		$response = $this->make_get_request( $ip, $params );
 
 		if ( is_wp_error( $response ) ) {
+			$this->cache_failure( $cache_key );
+
 			return $response;
 		}
 
@@ -430,9 +440,15 @@ class Client {
 			}
 		}
 
+		if ( $this->recently_failed( $cache_key ) ) {
+			return $this->recent_failure_error();
+		}
+
 		$response = $this->make_get_request( $processed_email );
 
 		if ( is_wp_error( $response ) ) {
+			$this->cache_failure( $cache_key );
+
 			return $response;
 		}
 
