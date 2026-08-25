@@ -98,8 +98,7 @@ class UsageStatistics extends Base {
 			'burst_available' => $this->get_burst_tokens(),
 			'burst_limit'     => $this->get_burst_token_limit(),
 			'percentage'      => $this->get_usage_percentage(),
-			'remaining'       => $this->get_remaining_tokens()
+			'remaining'       => $this->get_remaining_tokens(),
 		];
 	}
-
 }

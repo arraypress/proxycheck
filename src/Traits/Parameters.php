@@ -32,7 +32,7 @@ trait Parameters {
 	private array $cache_settings = [
 		'enabled'    => true,
 		'expiration' => 600,
-		'prefix'     => 'proxycheck_'
+		'prefix'     => 'proxycheck_',
 	];
 
 	/**
@@ -479,7 +479,7 @@ trait Parameters {
 	 * @return bool
 	 */
 	public function is_country_blocked( string $country ): bool {
-		return in_array( strtoupper( $country ), $this->blocked_countries );
+		return in_array( strtoupper( $country ), $this->blocked_countries, true );
 	}
 
 	/**
@@ -512,7 +512,6 @@ trait Parameters {
 	 * @return bool
 	 */
 	public function is_country_allowed( string $country ): bool {
-		return in_array( strtoupper( $country ), $this->allowed_countries );
+		return in_array( strtoupper( $country ), $this->allowed_countries, true );
 	}
-
 }

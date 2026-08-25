@@ -44,7 +44,10 @@ trait Dashboard {
 	 * @return DetectionEntry|WP_Error Response object or WP_Error on failure
 	 */
 	public function export_detections( int $limit = 100, int $offset = 0, bool $force_check = false ) {
-		$cache_key = $this->get_cache_key( 'detections', [ 'limit' => $limit, 'offset' => $offset ] );
+		$cache_key = $this->get_cache_key( 'detections', [
+			'limit' => $limit,
+			'offset' => $offset,
+		] );
 
 		if ( $this->enable_cache && ! $force_check ) {
 			$cached_data = get_transient( $cache_key );
@@ -56,7 +59,7 @@ trait Dashboard {
 		$params = [
 			'json'   => 1,
 			'limit'  => $limit,
-			'offset' => $offset
+			'offset' => $offset,
 		];
 
 		$response = $this->make_dashboard_request( 'export/detections/', $params );
@@ -116,7 +119,7 @@ trait Dashboard {
 			'addresses' => false,
 			'days'      => null,
 			'start'     => null,
-			'end'       => null
+			'end'       => null,
 		];
 
 		$options = wp_parse_args( $options, $defaults );
@@ -214,9 +217,9 @@ trait Dashboard {
 					'refused_queries'   => 0,
 					'custom_rules'      => 0,
 					'blacklisted'       => 0,
-					'total_queries'     => 0
+					'total_queries'     => 0,
 				],
-				'today'  => null
+				'today'  => null,
 			];
 		}
 
@@ -282,7 +285,7 @@ trait Dashboard {
 				'burst_available' => 0,
 				'burst_limit'     => 0,
 				'percentage'      => 0.0,
-				'remaining'       => 0
+				'remaining'       => 0,
 			];
 		}
 
@@ -601,37 +604,38 @@ trait Dashboard {
 	 *
 	 * @return ListEntries|WP_Error Response object or WP_Error on failure
 	 */
-	protected function manage_list( string $action, ?string $list = null, ?string $data = null ) {
+	protected function manage_list( string $action, ?string $list_name = null, ?string $data = null ) {
 		$valid_actions = [ 'print', 'add', 'remove', 'set', 'clear', 'erase', 'forcedl' ];
 
 		// Handle 'list' action for CORS (equivalent to 'print')
-		if ( $list === 'cors' && $action === 'list' ) {
+		if ( $list_name === 'cors' && $action === 'list' ) {
 			$action = 'print';
 		}
 
-		if ( ! in_array( $action, $valid_actions ) ) {
+		if ( ! in_array( $action, $valid_actions, true ) ) {
 			return new WP_Error(
 				'invalid_action',
+				/* translators: %s: the list action that was requested. */
 				sprintf( __( 'Invalid list action: %s', 'arraypress' ), $action )
 			);
 		}
 
 		// Build endpoint based on list type
-		if ( $list === 'cors' ) {
+		if ( $list_name === 'cors' ) {
 			$endpoint = 'cors/' . ( $action === 'print' ? 'list' : $action ) . '/';
 		} else {
 			$endpoint = $action === 'print' ?
-				$list . '/list/' :
-				$list . '/' . $action . '/';
+				$list_name . '/list/' :
+				$list_name . '/' . $action . '/';
 		}
 
 		$params = [ 'json' => 1 ];
 		$args   = [];
 
-		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ] ) ) {
+		if ( $data !== null && in_array( $action, [ 'add', 'remove', 'set' ], true ) ) {
 			$args = [
 				'method' => 'POST',
-				'body'   => [ 'data' => $data ]
+				'body'   => [ 'data' => $data ],
 			];
 		}
 
@@ -718,5 +722,4 @@ trait Dashboard {
 	 * @return array|WP_Error Processed response or WP_Error
 	 */
 	abstract protected function handle_response( $response );
-
 }

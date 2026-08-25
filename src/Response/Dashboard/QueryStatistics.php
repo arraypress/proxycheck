@@ -36,7 +36,7 @@ class QueryStatistics extends Base {
 			'reusable_emails'   => $this->get_nested_int( 'TODAY', 'reusable emails' ),
 			'custom_rules'      => $this->get_nested_int( 'TODAY', 'custom rules' ),
 			'blacklisted'       => $this->get_nested_int( 'TODAY', 'blacklisted' ),
-			'total_queries'     => $this->get_nested_int( 'TODAY', 'total queries' )
+			'total_queries'     => $this->get_nested_int( 'TODAY', 'total queries' ),
 		];
 	}
 
@@ -59,7 +59,7 @@ class QueryStatistics extends Base {
 			'refused_queries'   => 0,
 			'custom_rules'      => 0,
 			'blacklisted'       => 0,
-			'total_queries'     => 0
+			'total_queries'     => 0,
 		];
 
 		foreach ( $queries as $day => $stats ) {
@@ -77,7 +77,7 @@ class QueryStatistics extends Base {
 				'refused_queries'   => (int) ( $stats['refused queries'] ?? 0 ),
 				'custom_rules'      => (int) ( $stats['custom rules'] ?? 0 ),
 				'blacklisted'       => (int) ( $stats['blacklisted'] ?? 0 ),
-				'total_queries'     => (int) ( $stats['total queries'] ?? 0 )
+				'total_queries'     => (int) ( $stats['total queries'] ?? 0 ),
 			];
 
 			$days_data[] = $formatted_stats;
@@ -111,10 +111,9 @@ class QueryStatistics extends Base {
 				'detected_threats'      => $totals['proxies'] + $totals['vpns'] + $totals['disposable_emails'],
 				'detection_rate'        => $totals['total_queries'] > 0 ?
 					round( ( ( $totals['proxies'] + $totals['vpns'] + $totals['disposable_emails'] ) /
-					         $totals['total_queries'] ) * 100, 2 ) : 0,
-				'average_daily_queries' => round( $totals['total_queries'] / $days, 2 )
-			]
+							$totals['total_queries'] ) * 100, 2 ) : 0,
+				'average_daily_queries' => round( $totals['total_queries'] / $days, 2 ),
+			],
 		];
 	}
-
 }

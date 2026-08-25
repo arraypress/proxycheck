@@ -83,49 +83,48 @@ abstract class Base {
 	 * Safely get integer value from data
 	 *
 	 * @param string $key     The key to retrieve
-	 * @param int    $default Default value if not found
+	 * @param int    $default_value Default value if not found
 	 *
 	 * @return int
 	 */
-	protected function get_int( string $key, int $default = 0 ): int {
-		return (int) ( $this->data[ $key ] ?? $default );
+	protected function get_int( string $key, int $default_value = 0 ): int {
+		return (int) ( $this->data[ $key ] ?? $default_value );
 	}
 
 	/**
 	 * Safely get nested integer value from data
 	 *
-	 * @param string $parent  Parent key
+	 * @param string $parent_key  Parent key
 	 * @param string $key     The key to retrieve
-	 * @param int    $default Default value if not found
+	 * @param int    $default_value Default value if not found
 	 *
 	 * @return int
 	 */
-	protected function get_nested_int( string $parent, string $key, int $default = 0 ): int {
-		return (int) ( $this->data[ $parent ][ $key ] ?? $default );
+	protected function get_nested_int( string $parent_key, string $key, int $default_value = 0 ): int {
+		return (int) ( $this->data[ $parent_key ][ $key ] ?? $default_value );
 	}
 
 	/**
 	 * Safely get string value from data
 	 *
 	 * @param string $key     The key to retrieve
-	 * @param string $default Default value if not found
+	 * @param string $default_value Default value if not found
 	 *
 	 * @return string
 	 */
-	protected function get_string( string $key, string $default = '' ): string {
-		return (string) ( $this->data[ $key ] ?? $default );
+	protected function get_string( string $key, string $default_value = '' ): string {
+		return (string) ( $this->data[ $key ] ?? $default_value );
 	}
 
 	/**
 	 * Safely get array value from data
 	 *
 	 * @param string $key     The key to retrieve
-	 * @param array  $default Default value if not found
+	 * @param array  $default_value Default value if not found
 	 *
 	 * @return array
 	 */
-	protected function get_array( string $key, array $default = [] ): array {
-		return is_array( $this->data[ $key ] ?? null ) ? $this->data[ $key ] : $default;
+	protected function get_array( string $key, array $default_value = [] ): array {
+		return is_array( $this->data[ $key ] ?? null ) ? $this->data[ $key ] : $default_value;
 	}
-
 }

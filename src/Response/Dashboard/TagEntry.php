@@ -29,7 +29,7 @@ class TagEntry extends Base {
 				'proxy'     => (int) ( $data['types']['proxy'] ?? 0 ),
 				'vpn'       => (int) ( $data['types']['vpn'] ?? 0 ),
 				'rule'      => (int) ( $data['types']['rule'] ?? 0 ),
-				'addresses' => $data['addresses'] ?? []
+				'addresses' => $data['addresses'] ?? [],
 			];
 		}, $this->data );
 	}
@@ -58,5 +58,4 @@ class TagEntry extends Base {
 
 		return array_unique( $addresses );
 	}
-
 }

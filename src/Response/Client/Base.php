@@ -55,9 +55,8 @@ abstract class Base {
 			'status'     => 1,
 			'message'    => 1,
 			'node'       => 1,
-			'query time' => 1
+			'query time' => 1,
 		] ) );
-
 	}
 
 	/**
@@ -144,5 +143,4 @@ abstract class Base {
 	public function get_block_details(): ?array {
 		return $this->data['block_details'] ?? null;
 	}
-
 }

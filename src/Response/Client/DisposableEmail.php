@@ -37,5 +37,4 @@ class DisposableEmail extends Base {
 	public function is_disposable(): bool {
 		return ( $this->data[ $this->identifier ]['disposable'] ?? null ) === 'yes';
 	}
-
 }

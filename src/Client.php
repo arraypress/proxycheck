@@ -173,6 +173,7 @@ class Client {
 			return new WP_Error(
 				'api_error',
 				sprintf(
+					/* translators: %s: the error message returned by WP_Http. */
 					__( 'ProxyCheck API request failed: %s', 'arraypress' ),
 					$response->get_error_message()
 				)
@@ -184,6 +185,7 @@ class Client {
 			return new WP_Error(
 				'http_error',
 				sprintf(
+					/* translators: %d: the HTTP status code returned by ProxyCheck. */
 					__( 'HTTP request failed with status code: %d', 'arraypress' ),
 					$status_code
 				)
@@ -222,6 +224,7 @@ class Client {
 		if ( ! $this->is_valid_ip( $ip ) ) {
 			return new WP_Error(
 				'invalid_ip',
+				/* translators: %s: the IP address that failed validation. */
 				sprintf( __( 'Invalid IP address: %s', 'arraypress' ), $ip )
 			);
 		}
@@ -299,7 +302,7 @@ class Client {
 							'status'     => $response['status'] ?? 'ok',
 							'node'       => $response['node'] ?? null,
 							'query time' => $response['query time'] ?? null,
-							$ip          => $response[ $ip ]
+							$ip          => $response[ $ip ],
 						];
 						// Add block status for each IP
 						$single_response = $this->add_block_status( $single_response, $ip );
@@ -307,7 +310,8 @@ class Client {
 					} catch ( Exception $e ) {
 						return new WP_Error(
 							'response_error',
-							sprintf( __( 'Error processing response for IP %s: %s', 'arraypress' ),
+							/* translators: 1: the IP address being processed, 2: the error message. */
+							sprintf( __( 'Error processing response for IP %1$s: %2$s', 'arraypress' ),
 								$ip,
 								$e->getMessage() )
 						);
@@ -353,7 +357,7 @@ class Client {
 				$response['block_details'] = [
 					'name'       => $ip_data['operator']['name'] ?? '',
 					'anonymity'  => $ip_data['operator']['anonymity'] ?? '',
-					'popularity' => $ip_data['operator']['popularity'] ?? ''
+					'popularity' => $ip_data['operator']['popularity'] ?? '',
 				];
 			}
 		}
@@ -394,8 +398,8 @@ class Client {
 
 		// First check if country is blocked
 		if ( $response['block'] === 'no' && ! empty( $this->get_blocked_countries() ) ) {
-			if ( in_array( $country, $this->get_blocked_countries() ) ||
-			     in_array( $isocode, $this->get_blocked_countries() ) ) {
+			if ( in_array( $country, $this->get_blocked_countries(), true ) ||
+				in_array( $isocode, $this->get_blocked_countries(), true ) ) {
 				$response['block']        = 'yes';
 				$response['block_reason'] = 'country';
 			}
@@ -403,8 +407,8 @@ class Client {
 
 		// Then check if country is explicitly allowed
 		if ( $response['block'] === 'yes' && ! empty( $this->get_allowed_countries() ) ) {
-			if ( in_array( $country, $this->get_allowed_countries() ) ||
-			     in_array( $isocode, $this->get_allowed_countries() ) ) {
+			if ( in_array( $country, $this->get_allowed_countries(), true ) ||
+				in_array( $isocode, $this->get_allowed_countries(), true ) ) {
 				$response['block']        = 'no';
 				$response['block_reason'] = 'na';
 			}
@@ -425,6 +429,7 @@ class Client {
 		if ( ! is_email( $email ) ) {
 			return new WP_Error(
 				'invalid_email',
+				/* translators: %s: the email address that failed validation. */
 				sprintf( __( 'Invalid email address: %s', 'arraypress' ), $email )
 			);
 		}
@@ -493,14 +498,29 @@ class Client {
 		}
 
 		global $wpdb;
-		$pattern = $wpdb->esc_like( '_transient_' . $this->get_cache_prefix() ) . '%';
 
-		return $wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
-					$pattern
-				)
-			) !== false;
+		/*
+		 * Find the names, then let delete_transient() do the deleting.
+		 *
+		 * Deleting the rows directly leaves every matching
+		 * _transient_timeout_* row behind -- those do not carry the prefix, so
+		 * a DELETE ... LIKE orphans one options row per cached lookup,
+		 * permanently. delete_transient() removes both halves, fires the
+		 * delete_transient_* hooks, and clears the entry from an external
+		 * object cache, none of which a raw DELETE does.
+		 */
+		$like = $wpdb->esc_like( '_transient_' . $this->get_cache_prefix() ) . '%';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$names = $wpdb->get_col(
+			$wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $like )
+		);
+
+		foreach ( (array) $names as $name ) {
+			delete_transient( substr( (string) $name, strlen( '_transient_' ) ) );
+		}
+
+		return true;
 	}
 
 	/**
@@ -513,5 +533,4 @@ class Client {
 	private function is_valid_ip( string $ip ): bool {
 		return filter_var( $ip, FILTER_VALIDATE_IP ) !== false;
 	}
-
 }

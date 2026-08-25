@@ -51,7 +51,7 @@ class ListEntries extends Base {
 			'entries' => $this->get_entries(),
 			'count'   => count( $this->get_entries() ),
 			'status'  => $this->get_status(),
-			'message' => $this->get_message()
+			'message' => $this->get_message(),
 		];
 	}
 
@@ -74,5 +74,4 @@ class ListEntries extends Base {
 	public function is_empty(): bool {
 		return empty( $this->get_entries() );
 	}
-
 }

@@ -27,7 +27,7 @@ class IP extends Base {
 		'google' => 'https://www.google.com/maps/search/?api=1&query=',
 		'apple'  => 'https://maps.apple.com/?q=',
 		'bing'   => 'https://www.bing.com/maps?cp=',
-		'osm'    => 'https://www.openstreetmap.org/?mlat='
+		'osm'    => 'https://www.openstreetmap.org/?mlat=',
 	];
 
 	/**
@@ -147,7 +147,7 @@ class IP extends Base {
 			'denial_of_service',
 			'forum_spam',
 			'form_submission',
-			'vulnerability_probing'
+			'vulnerability_probing',
 		];
 
 		foreach ( $attack_types as $type ) {
@@ -279,7 +279,7 @@ class IP extends Base {
 		}
 
 		if ( ! empty( $country['is_eu'] ) ) {
-			$parts[] = "🇪🇺";
+			$parts[] = '🇪🇺';
 		}
 
 		return empty( $parts ) ? null : implode( ' ', $parts );
@@ -337,23 +337,12 @@ class IP extends Base {
 	 * @return string|null Formatted address string or null if no address info
 	 */
 	public function get_formatted_address(): ?string {
-		$parts = [];
-
-		if ( $city = $this->get_city() ) {
-			$parts[] = $city;
-		}
-
-		if ( $region = $this->get_formatted_region() ) {
-			$parts[] = $region;
-		}
-
-		if ( $country = $this->get_formatted_country() ) {
-			$parts[] = $country;
-		}
-
-		if ( $postcode = $this->get_postcode() ) {
-			$parts[] = $postcode;
-		}
+		$parts = array_filter( [
+			$this->get_city(),
+			$this->get_formatted_region(),
+			$this->get_formatted_country(),
+			$this->get_postcode(),
+		] );
 
 		return empty( $parts ) ? null : implode( ', ', $parts );
 	}
@@ -427,8 +416,8 @@ class IP extends Base {
 		}
 
 		return self::MAP_URLS['google'] .
-		       esc_attr( $coordinates['latitude'] ) . ',' .
-		       esc_attr( $coordinates['longitude'] );
+				esc_attr( $coordinates['latitude'] ) . ',' .
+				esc_attr( $coordinates['longitude'] );
 	}
 
 	/**
@@ -443,8 +432,8 @@ class IP extends Base {
 		}
 
 		return self::MAP_URLS['apple'] .
-		       esc_attr( $coordinates['latitude'] ) . ',' .
-		       esc_attr( $coordinates['longitude'] );
+				esc_attr( $coordinates['latitude'] ) . ',' .
+				esc_attr( $coordinates['longitude'] );
 	}
 
 	/**
@@ -459,8 +448,8 @@ class IP extends Base {
 		}
 
 		return self::MAP_URLS['bing'] .
-		       esc_attr( $coordinates['latitude'] ) . '~' .
-		       esc_attr( $coordinates['longitude'] );
+				esc_attr( $coordinates['latitude'] ) . '~' .
+				esc_attr( $coordinates['longitude'] );
 	}
 
 	/**
@@ -475,9 +464,9 @@ class IP extends Base {
 		}
 
 		return self::MAP_URLS['osm'] .
-		       esc_attr( $coordinates['latitude'] ) .
-		       '&mlon=' . esc_attr( $coordinates['longitude'] ) .
-		       '&zoom=12';
+				esc_attr( $coordinates['latitude'] ) .
+				'&mlon=' . esc_attr( $coordinates['longitude'] ) .
+				'&zoom=12';
 	}
 
 	/**
@@ -490,7 +479,7 @@ class IP extends Base {
 			'google' => $this->get_google_maps_url(),
 			'apple'  => $this->get_apple_maps_url(),
 			'bing'   => $this->get_bing_maps_url(),
-			'osm'    => $this->get_openstreetmap_url()
+			'osm'    => $this->get_openstreetmap_url(),
 		];
 	}
 
@@ -583,7 +572,7 @@ class IP extends Base {
 			'anonymity'  => $operator['anonymity'] ?? null,
 			'popularity' => $operator['popularity'] ?? null,
 			'protocols'  => $operator['protocols'] ?? [],
-			'policies'   => $operator['policies'] ?? []
+			'policies'   => $operator['policies'] ?? [],
 		];
 	}
 
@@ -678,5 +667,4 @@ class IP extends Base {
 	public function is_high_risk( int $threshold = self::RISK_HIGH_THRESHOLD ): bool {
 		return ( $this->get_risk_score() ?? 0 ) > $threshold;
 	}
-
 }

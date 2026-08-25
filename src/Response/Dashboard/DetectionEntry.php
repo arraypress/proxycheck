@@ -37,7 +37,7 @@ class DetectionEntry extends Base {
 				'node'     => $detection['answering node'] ?? '',
 				'tag'      => $detection['tag'] ?? '',
 				'country'  => $detection['country'] ?? '',
-				'port'     => $detection['port'] ?? null
+				'port'     => $detection['port'] ?? null,
 			];
 		}
 
@@ -52,5 +52,4 @@ class DetectionEntry extends Base {
 	public function get_count(): int {
 		return count( array_filter( array_keys( $this->data ), 'is_numeric' ) );
 	}
-
 }
